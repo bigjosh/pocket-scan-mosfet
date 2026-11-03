@@ -1,4 +1,4 @@
-"""Immutable RAM scan snapshots with bounded, repeatable schema-3 JSON reads.
+"""Immutable RAM scan snapshots with bounded, repeatable schema-4/5 JSON reads.
 
 Construction snapshots the small header before acquisition. Sealing stores a
 bounded diagnostic, freezes measurements, and never builds the full payload.
@@ -20,16 +20,13 @@ except ImportError:
 
 try:
     from . import model
-    from .calibration_json import dump_calibration
     from .ram_scan import PackedScanBuffer
 except ImportError:
     import model
-    from calibration_json import dump_calibration
     from ram_scan import PackedScanBuffer
 
 
-COLUMNS = ("index", "curve", "requested_vds", "requested_vgs", "vds", "vgs",
-           "id_a", "ig_a", "drain_voltage_limited", "gate_voltage_limited", "gate_off_target")
+COLUMNS = ("vds", "vgs", "id_a", "ig_a")
 CHUNK_BYTES = 256
 HEADER_BYTES = 4096
 TRAILER_BYTES = 1024
@@ -38,11 +35,6 @@ MAX_WIRE_BYTES = 2 * 1024 * 1024
 
 def _hex(value):
     return binascii.hexlify(value).decode("ascii")
-
-
-def _digest_valid(value):
-    return (isinstance(value, str) and len(value) == 64 and
-            all(character in "0123456789abcdef" for character in value))
 
 
 def _safe_id(value, maximum=96):
@@ -59,27 +51,6 @@ def _finite(value):
     except OverflowError:
         raise ValueError("Invalid scan number")
     return value
-
-
-class _HashWriter(io.IOBase):
-    def __init__(self):
-        self.hash = hashlib.sha256()
-
-    def write(self, value):
-        if isinstance(value, str):
-            for offset in range(0, len(value), 64):
-                self.hash.update(value[offset:offset + 64].encode("utf-8"))
-        else:
-            self.hash.update(value)
-        return len(value)
-
-
-def calibration_hash(calibration):
-    if not isinstance(calibration, dict):
-        raise ValueError("Invalid calibration fingerprint input")
-    writer = _HashWriter()
-    dump_calibration(calibration, writer)
-    return _hex(writer.hash.digest())
 
 
 class _ChunkWriter(io.IOBase):
@@ -139,6 +110,36 @@ def _validate_utc(value):
         raise ValueError("Invalid scan creation time")
 
 
+def _validate_current_correction(value):
+    """Validate a bounded baseline identity, without copying its tables or data.
+
+    The header is serialized immediately before acquisition, so callers cannot
+    later mutate the recorded correction. No baseline file is opened here.
+    """
+    if (not isinstance(value, dict) or len(value) != 5 or
+            type(value.get("version")) is not int or value["version"] != 1 or
+            value.get("lookup") != "linear_endpoint_hold"):
+        raise ValueError("Invalid current correction metadata")
+    digest = value.get("sha256")
+    if (not isinstance(digest, str) or len(digest) != 64 or
+            any(character not in "0123456789abcdefABCDEF" for character in digest)):
+        raise ValueError("Invalid baseline digest")
+    for role in ("drain", "gate"):
+        channel = value.get(role)
+        if (not isinstance(channel, dict) or len(channel) != 5 or
+                type(channel.get("zero_valid")) is not bool):
+            raise ValueError("Invalid current correction channel")
+        for key, low, high in (("min_bus_uv", 0, 40958750),
+                               ("max_bus_uv", 0, 40958750),
+                               ("zero_duty_u16", 0, 65535),
+                               ("zero_residual_uv", -42000000, 42000000)):
+            number = channel.get(key)
+            if type(number) is not int or not low <= number <= high:
+                raise ValueError("Invalid current correction channel")
+        if channel["min_bus_uv"] > channel["max_bus_uv"]:
+            raise ValueError("Invalid baseline voltage range")
+
+
 def _validate_fault(fault, count, drains, gates):
     keys = ("channel", "kind", "raw_code", "sign", "limit_value", "limit_unit",
             "measured_value", "index", "curve", "requested_vds", "requested_vgs", "phase")
@@ -146,7 +147,7 @@ def _validate_fault(fault, count, drains, gates):
         raise ValueError("Invalid stopped scan diagnostic")
     if (fault["channel"] not in ("drain", "gate") or fault["kind"] not in
             ("shunt_saturation", "bus_saturation", "current_limit", "current_limit_alert") or
-            fault["phase"] not in ("drive", "park_drain", "settle_gate", "settle", "sample")):
+            fault["phase"] not in ("drive", "settle", "sample")):
         raise ValueError("Invalid stopped scan diagnostic")
     for key in ("sign", "index", "curve"):
         if isinstance(fault[key], bool) or not isinstance(fault[key], int):
@@ -186,8 +187,8 @@ def _validate_fault(fault, count, drains, gates):
 
 
 class RamScan:
-    def __init__(self, buffer, settings, calibration, device_id, scan_id, created_utc, started_ms,
-                 calibration_sha256=None):
+    def __init__(self, buffer, settings, device_id, scan_id, created_utc, started_ms,
+                 current_correction=None):
         if not isinstance(buffer, PackedScanBuffer) or len(buffer) or buffer.frozen:
             raise ValueError("A new scan requires an empty writable RAM buffer")
         if not _safe_id(device_id, 64) or not _safe_id(scan_id):
@@ -201,18 +202,15 @@ class RamScan:
         self._gates = model.sweep_uv(self._settings["gate_start_uv"], self._settings["gate_stop_uv"], self._settings["gate_step_uv"])
         if len(self._drains) * len(self._gates) > buffer.capacity:
             raise ValueError("Scan exceeds RAM buffer capacity")
-        if not isinstance(calibration, dict) or not isinstance(calibration.get("metadata", {}), dict):
-            raise ValueError("Invalid calibration metadata")
-        model.validate_calibration_acquisition(calibration.get("metadata", {}), self._settings)
-        if calibration_sha256 is None:
-            calibration_sha256 = calibration_hash(calibration)
-        if not _digest_valid(calibration_sha256):
-            raise ValueError("Invalid calibration fingerprint")
-        header = {"schema_version": 3, "scan_id": scan_id, "device_id": device_id,
+        if current_correction is not None:
+            _validate_current_correction(current_correction)
+        header = {"schema_version": 5 if current_correction is not None else 4,
+                  "scan_id": scan_id, "device_id": device_id,
                   "created_utc": created_utc, "settings": self._settings,
                   "acquisition": model.acquisition_metadata(self._settings, blocks_per_point=1),
-                  "calibration": {"sha256": calibration_sha256, "metadata": calibration.get("metadata", {})},
                   "columns": COLUMNS}
+        if current_correction is not None:
+            header["current_correction"] = current_correction
         chunks = _json_chunks(header, HEADER_BYTES)
         self._header = chunks[:-1] + (chunks[-1][:-1], b',"points":[')
         self._buffer, self._record_revision = buffer, buffer.revision
@@ -297,9 +295,6 @@ class RamScan:
             target = model.volts_from_uv(target_uv)
             if abs(_finite(row.get(key)) - target) > 1e-5 * max(1, abs(target)):
                 raise ValueError("Invalid requested scan voltage")
-        for key, maximum in (("vds", 36), ("vgs", 36), ("id_a", 1), ("ig_a", 1)):
-            if abs(_finite(row.get(key))) > maximum:
-                raise ValueError("Invalid scan measurement")
         self._buffer.append(row)
         self._record_revision = self._buffer.revision
 
@@ -307,6 +302,8 @@ class RamScan:
         self._check_recording()
         count = len(self._buffer)
         expected = len(self._drains) * len(self._gates)
+        if count == 0:
+            raise ValueError("A scan needs at least one completed point")
         if fault is None and count != expected:
             raise ValueError("Incomplete scan cannot be saved")
         saved_fault = _validate_fault(fault, count, self._drains, self._gates) if fault is not None else None
@@ -373,14 +370,9 @@ class PayloadReader:
             return piece
         if self._point_index < scan._point_count:
             index = self._point_index
-            curve, drain_index = divmod(index, len(scan._drains))
-            vds, vgs, id_a, ig_a, flags = scan.buffer.get(index)
-            piece = ("%s[%d,%d,%s,%s,%.9g,%.9g,%.9g,%.9g,%s,%s,%s]" %
-                     ("," if index else "", index, curve,
-                      model.format_voltage_uv(scan._drains[drain_index]),
-                      model.format_voltage_uv(scan._gates[curve]), vds, vgs, id_a, ig_a,
-                      "true" if flags & 1 else "false", "true" if flags & 2 else "false",
-                      "true" if flags & 4 else "false")).encode("ascii")
+            vds, vgs, id_a, ig_a = scan.buffer.get(index)
+            piece = ("%s[%.9g,%.9g,%.9g,%.9g]" %
+                     ("," if index else "", vds, vgs, id_a, ig_a)).encode("ascii")
             if len(piece) > CHUNK_BYTES:
                 raise ValueError("Scan point exceeds wire limit")
             self._point_index += 1

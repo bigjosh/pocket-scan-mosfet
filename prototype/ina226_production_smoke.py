@@ -4,19 +4,18 @@ Run only with normal main.py stopped and the agreed open-output fixture.
     import ina226_production_smoke
     ina226_production_smoke.run("root-chosen-run-nonce")
 
-No files, network, calibration or positive PWM commands. The alert test changes
-only the gate comparator threshold, explicitly labeled synthetic; it does not
-produce or claim a real 100-uA gate-current excursion. All thresholds, masks
-and continuous-monitor configs are restored in finally, then outputs close.
+No files, network, calibration or positive PWM commands. Verifies triggered
+averaging, ready-bit latching, cancellation and disabled threshold comparators.
+It does not produce or claim a physical saturation excursion. Continuous-mode
+configs and disabled alert masks are restored in finally, then outputs close.
 """
 import json
 import time
 import model
 from machine import Pin
 from hardware import Instrument, HardwareError, INA_CONFIG, ALERT_MASK
-from engine import OverrangeError
 
-TEST_ID = "ina226-production-trigger-v1"
+TEST_ID = "ina226-production-trigger-v2"
 ADDRESSES = (0x44, 0x41)
 ROLES = ("drain", "gate")
 
@@ -36,17 +35,18 @@ def run(nonce):
             any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in nonce)):
         raise ValueError("Use a short alphanumeric run nonce")
     instrument = None
-    originals = [int(model.DRAIN_CURRENT_LIMIT_A * model.DRAIN_SHUNT_OHM / 0.0000025),
-                 int(model.GATE_CURRENT_LIMIT_A * model.GATE_SHUNT_OHM / 0.0000025)]
     passed = False
     emit(nonce, "BEGIN", zero_pwm_only=True)
     try:
         Pin(21, Pin.OUT, value=0)
         Pin(20, Pin.OUT, value=0)
         instrument = Instrument()
-        for index, address in enumerate(ADDRESSES):
-            originals[index] = instrument._read16(address, 7)
+        assert ALERT_MASK == 0, "Current threshold comparators must be disabled"
+        for address in ADDRESSES:
+            assert instrument._read16(address, 6) & 0xFC03 == 0
         assert_zero(instrument)
+        emit(nonce, "THRESHOLD_COMPARATORS_DISABLED", alert_mask=0,
+             physical_saturation_test=False)
 
         started = time.ticks_us()
         instrument.begin_measurement(64)
@@ -97,33 +97,9 @@ def run(nonce):
         for address in ADDRESSES:
             assert instrument._read16(address, 0) == INA_CONFIG
         assert_zero(instrument)
-        caught = None
-        for signed_threshold in (0, -1):
-            code = signed_threshold & 65535
-            emit(nonce, "SYNTHETIC_THRESHOLD_TEST", channel="gate",
-                 injected_signed_code=signed_threshold, injected_shunt_v=signed_threshold * 0.0000025,
-                 real_current_excursion=False)
-            instrument._write16(0x41, 7, code)
-            assert instrument._read16(0x41, 7) == code
-            started = time.ticks_ms()
-            while time.ticks_diff(time.ticks_ms(), started) < 40:
-                try:
-                    instrument.poll_alerts()
-                except OverrangeError as error:
-                    assert error.channel == "gate" and error.kind == "current_limit_alert"
-                    assert error.sign == 1 and error.raw_code is None and error.measured_value is None
-                    caught = error
-                    break
-                time.sleep_ms(2)
-            if caught is not None:
-                assert_zero(instrument)
-                emit(nonce, "SYNTHETIC_ALERT_PASS", injected_signed_code=signed_threshold,
-                     kind=caught.kind, raw_code=None, measured_value=None,
-                     production_limit_a=caught.limit_value, pwm_zero=True,
-                     real_current_excursion=False)
-                break
-        if caught is None:
-            raise RuntimeError("Injected zero/-1 gate thresholds produced no alert")
+        for address in ADDRESSES:
+            assert instrument._read16(address, 6) & 0xFC03 == 0
+        emit(nonce, "CONTINUOUS_RESUME_PASS", alert_mask=0, pwm_zero=True)
         passed = True
     finally:
         errors = []
@@ -134,8 +110,7 @@ def run(nonce):
                 errors.append("zero:" + type(error).__name__)
             # Attempt every restore even if another sensor or cleanup failed.
             for index, address in enumerate(ADDRESSES):
-                threshold = originals[index]
-                for register, value in ((7, threshold), (6, ALERT_MASK), (0, INA_CONFIG)):
+                for register, value in ((6, ALERT_MASK), (0, INA_CONFIG)):
                     try:
                         instrument._write16(address, register, value)
                         actual = instrument._read16(address, register)
@@ -152,7 +127,7 @@ def run(nonce):
             except Exception as error:
                 errors.append("pin" + str(gpio) + ":" + type(error).__name__)
         emit(nonce, "CLEANUP", passed=passed and not errors,
-             continuous_config=INA_CONFIG, thresholds_restored=instrument is not None and not errors,
+             continuous_config=INA_CONFIG, configuration_restored=instrument is not None and not errors,
              outputs_low=not errors, cleanup_errors=errors)
         if errors:
             raise RuntimeError("Production smoke cleanup failed")

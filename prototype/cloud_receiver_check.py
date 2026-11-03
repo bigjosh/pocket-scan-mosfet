@@ -1,22 +1,58 @@
 """Host check/configuration for the private endpoint; never prints its URL.
 
 Read .local/cloud-url.txt. --configure writes ignored .local/cloud.json for
-USB transfer. With --scan, send the exact archived payload to test idempotent
+USB transfer. With --scan, send an explicit JSON payload file byte-for-byte for
 retry; otherwise request the receiver's fixed health response.
 """
 import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import ssl
 import sys
 import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from firmware.archive import UploadSource
-from firmware.cloud import validate_url
+MAX_SCAN_BYTES = 2 * 1024 * 1024
+
+
+def validate_url(url):
+    """Accept only a production Google Apps Script endpoint; never echo it."""
+    if (not isinstance(url, str) or not 1 <= len(url) <= 2048 or
+            any(ord(character) <= 32 or ord(character) > 126 for character in url)):
+        raise ValueError("Invalid receiver endpoint")
+    parts = urllib.parse.urlsplit(url)
+    if (parts.scheme != 'https' or parts.hostname != 'script.google.com' or
+            parts.port not in (None, 443) or parts.username or parts.password or
+            parts.query or parts.fragment or
+            re.fullmatch(r'/macros/s/[A-Za-z0-9_-]+/exec', parts.path) is None):
+        raise ValueError("Invalid receiver endpoint")
+    return url
+
+
+def load_scan_payload(path):
+    """Load bounded exact JSON bytes; never regenerate an accepted scan body."""
+    with path.open('rb') as stream:
+        body = stream.read(MAX_SCAN_BYTES + 1)
+    if not 1 <= len(body) <= MAX_SCAN_BYTES:
+        raise ValueError("Invalid scan payload size")
+    scan = json.loads(body.decode('utf-8'))
+    if (not isinstance(scan, dict) or not isinstance(scan.get('scan_id'), str) or len(scan['scan_id']) > 96 or
+            re.fullmatch(r'[0-9a-fA-F]+-[0-9a-fA-F]+', scan['scan_id']) is None or
+            type(scan.get('point_count')) is not int or not 1 <= scan['point_count'] <= 4096):
+        raise ValueError("Invalid scan payload identity")
+    return body, {"scan_id": scan["scan_id"], "point_count": scan["point_count"],
+                  "sha256": hashlib.sha256(body).hexdigest()}
+
+
+def validate_ack(result, expected):
+    if (not isinstance(result, dict) or result.get('ok') is not True or
+            not all(result.get(key) == value for key, value in expected.items()) or
+            type(result.get('point_count')) is not int or
+            type(result.get('sheet_id')) is not int or result['sheet_id'] < 0):
+        raise ValueError("Receiver acknowledgement did not match")
 
 
 class GoogleRedirect(urllib.request.HTTPRedirectHandler):
@@ -32,7 +68,7 @@ class GoogleRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--configure", action="store_true")
-    parser.add_argument("--scan", type=Path)
+    parser.add_argument("--scan", type=Path, help="Explicit JSON payload to upload without reserialization")
     args = parser.parse_args()
     url = validate_url((ROOT / ".local/cloud-url.txt").read_text(encoding="utf-8-sig").strip())
     if args.configure:
@@ -41,27 +77,7 @@ def main():
     body = None
     expected = None
     if args.scan:
-        source = UploadSource(str(args.scan))
-        try:
-            blocks = []
-            while True:
-                block = source.read(1024)
-                if not block:
-                    break
-                blocks.append(block)
-            body = b"".join(blocks)
-        finally:
-            source.close()
-        scan = json.loads(body)
-        expected = {"scan_id": scan["scan_id"], "point_count": scan["point_count"],
-                    "sha256": hashlib.sha256(body).hexdigest()}
-        metadata = json.loads(args.scan.with_suffix(".meta").read_text(encoding="utf-8"))
-        if expected["sha256"] != metadata["sha256"]:
-            # CPython and RP2 MicroPython can spell the same float32 value
-            # differently. An accepted scan must only retry its exact body.
-            print("Binary scan verified; host JSON spelling differs from the device. "
-                  "No upload attempted. Use the Pico queue to retry, or export CSV.")
-            return
+        body, expected = load_scan_payload(args.scan)
     context = ssl.create_default_context(cafile=str(ROOT / "firmware/google_roots.pem"))
     opener = urllib.request.build_opener(GoogleRedirect(), urllib.request.HTTPSHandler(context=context))
     request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
@@ -72,15 +88,13 @@ def main():
         result = json.loads(raw)
     if expected is None:
         assert result == {"ok": True, "service": "pocket-scan-mosfet", "schema_version": 1,
-                          "settings_versions": [1, 2, 3], "scan_schema_versions": [1, 2, 3]}
+                          "settings_versions": [1, 2, 3], "scan_schema_versions": [1, 2, 3, 4, 5]}
         print(json.dumps({"receiver_health": True, "verified_https": True,
                           "settings_versions": result["settings_versions"],
                           "scan_schema_versions": result["scan_schema_versions"],
                           "configuration_prepared": args.configure}))
     else:
-        assert result.get("ok") is True
-        assert all(result.get(key) == value for key, value in expected.items())
-        assert isinstance(result.get("sheet_id"), int)
+        validate_ack(result, expected)
         print(json.dumps({"acknowledged": True, "verified_https": True,
                           **expected, "sheet_id": result["sheet_id"]}))
 

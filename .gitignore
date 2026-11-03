@@ -23,6 +23,7 @@ htmlcov/
 settings.json
 calibration.bin
 calibration.json
+current-baseline*.bin*
 wifi.json
 cloud.json
 scans/

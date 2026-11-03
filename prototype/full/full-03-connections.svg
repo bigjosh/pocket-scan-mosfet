@@ -59,6 +59,6 @@
 <text x="55" y="1253" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R13 adds the 3.3 V reference to drain IN1+ only. Source J1.3 uses the same rail; connection confirmed by user.</text>
 <text x="55" y="1283" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">K1 VCC and ACTIVATE both join 3V3; GND joins ground. Labels are functions, not header positions. Leave unused contacts open.</text>
 <polyline class="wire" points="40,1354 1960,1354"/>
-<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Recalibrate after hardware / supply changes</text>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Optional current baseline; raw INA shunt stops</text>
 <text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 3 / 4</text>
 </svg>

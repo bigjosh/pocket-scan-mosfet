@@ -13,7 +13,7 @@ from firmware.engine import Engine
 from firmware.ram_scan import PackedScanBuffer
 from firmware.ui import App
 from test_ram_ui import RamCloud, RamWifi
-from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore, fixture_calibration
+from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore
 
 
 class EarlyStopDiagnosticTests(unittest.TestCase):
@@ -56,7 +56,7 @@ class EarlyStopDiagnosticTests(unittest.TestCase):
             self.cloud.discard_scan = fail_discard
         try:
             self.app = self.main.App(FakeDisplay(), FakeInputs(), self.engine, config,
-                fixture_calibration(), self.store, wifi=RamWifi(), cloud=self.cloud,
+                store=self.store, wifi=RamWifi(), cloud=self.cloud,
                 scan_buffer=self.buffer, restart=lambda: None)
             for self.now in range(0, 60000, 20):
                 self.app.tick(self.now)

@@ -8,7 +8,6 @@ from firmware import model
 from firmware.ram_scan import PackedScanBuffer
 from firmware.ram_payload import PayloadReader
 from firmware.ram_cloud import RamCloudManager, UPLOAD_ERROR
-from test_model_engine import calibration
 
 
 URL = 'https://script.google.com/macros/s/test-receiver/exec'
@@ -51,7 +50,7 @@ class Transport:
 
 def scan_settings():
     result = dict(model.DEFAULT_SETTINGS)
-    result.update(drain_stop_uv=0, gate_stop_uv=0, ina_average_count=4)
+    result.update(drain_start_uv=0, drain_stop_uv=0, gate_start_uv=0, gate_stop_uv=0, ina_average_count=4)
     return result
 
 
@@ -70,7 +69,7 @@ class RamCloudTests(unittest.TestCase):
             utc_provider=lambda: '2026-11-02T00:00:00Z')
 
     def prepare(self):
-        self.manager.begin_scan(scan_settings(), calibration(), 0)
+        self.manager.begin_scan(scan_settings(), 0)
         self.manager.record_point(point())
         self.manager.finish_scan(100)
         for unused in range(100):
@@ -78,6 +77,76 @@ class RamCloudTests(unittest.TestCase):
             if self.manager.state != 'preparing':
                 break
         self.assertEqual(self.manager.state, 'waiting_wifi')
+
+    def test_progress_stages_follow_preparation_transport_and_exact_ack(self):
+        self.manager.begin_scan(scan_settings(), 0)
+        self.manager.record_point(point())
+        self.manager.finish_scan(100)
+        self.assertEqual(self.manager.upload_stage, 0)
+        while self.manager.state == 'preparing':
+            self.manager.tick(101)
+        self.assertEqual(self.manager.upload_stage, 1)
+        self.assertEqual(self.manager.upload_total, self.manager.scan.wire_size)
+        self.transport.upload_stage, self.transport.payload_sent = 1, 0
+        self.manager.tick(102, online=True)
+        self.transport.upload_stage = 2
+        self.transport.payload_sent = self.manager.upload_total // 2
+        self.manager.tick(103, online=True)
+        self.assertEqual(self.manager.upload_stage, 2)
+        self.assertEqual(self.manager.upload_sent, self.manager.upload_total // 2)
+        self.transport.upload_stage = 3
+        self.transport.payload_sent = self.manager.upload_total
+        self.manager.tick(104, online=True)
+        self.assertEqual(self.manager.upload_stage, 3)
+        self.assertEqual(self.manager.state, 'uploading')
+        self.assertEqual(self.manager.upload_sent, self.manager.upload_total)
+        self.transport.ack = dict(self.transport.expected)
+        self.manager.tick(105, online=True)
+        self.assertEqual(self.manager.upload_stage, 4)
+        self.assertEqual(self.manager.state, 'complete')
+
+    def test_corrected_scan_passes_compact_metadata_without_baseline_file_reads(self):
+        channel = {'min_bus_uv': 0, 'max_bus_uv': 17000000, 'zero_duty_u16': 0,
+                   'zero_residual_uv': 0, 'zero_valid': True}
+        correction = {'version': 1, 'sha256': 'a' * 64, 'lookup': 'linear_endpoint_hold',
+                      'drain': dict(channel), 'gate': dict(channel)}
+        with patch('builtins.open', side_effect=AssertionError('scan filesystem access')):
+            self.manager.begin_scan(scan_settings(), 0, current_correction=correction)
+            self.manager.record_point(point())
+            self.manager.finish_scan(100)
+            while self.manager.state == 'preparing':
+                self.manager.tick(101)
+            reader = PayloadReader(self.manager.scan)
+            body = bytearray()
+            while True:
+                chunk = reader.read(256)
+                if not chunk:
+                    break
+                body.extend(chunk)
+            reader.close()
+        value = json.loads(body)
+        self.assertEqual(value['schema_version'], 5)
+        self.assertEqual(value['current_correction'], correction)
+        self.assertEqual(self.store.writes, [])
+
+    def test_failure_preserves_actual_stage_and_sent_count_including_bad_ack(self):
+        for stage in (1, 2, 3):
+            with self.subTest(stage=stage):
+                self.setUp()
+                self.prepare()
+                self.manager.tick(102, online=True)
+                self.transport.upload_stage = stage
+                sent = self.manager.upload_total if stage == 3 else self.manager.upload_total // 2
+                self.transport.payload_sent = sent
+                if stage == 3:
+                    self.transport.ack = dict(self.transport.expected, point_count=0)
+                else:
+                    self.transport.fault = True
+                self.manager.tick(103, online=True)
+                self.assertEqual(self.manager.state, 'error')
+                self.assertEqual(self.manager.upload_stage, stage)
+                self.assertEqual(self.manager.upload_sent, sent)
+                self.assertEqual(len(self.buffer), 1)
 
     def test_full_cycle_is_flash_free_and_requires_exact_ack_before_success(self):
         with patch('builtins.open', side_effect=AssertionError('filesystem used')):
@@ -143,7 +212,7 @@ class RamCloudTests(unittest.TestCase):
             if not chunk:
                 break
             body.extend(chunk)
-        self.assertEqual(json.loads(body)['schema_version'], 3)
+        self.assertEqual(json.loads(body)['schema_version'], 4)
         self.assertEqual(len(self.buffer), 1)
 
     def test_cancel_after_seal_discards_without_any_upload(self):
@@ -152,7 +221,7 @@ class RamCloudTests(unittest.TestCase):
         self.assertEqual(self.transport.starts, 0)
         self.assertIsNone(self.manager.scan)
         with self.assertRaisesRegex(RuntimeError, 'Restart'):
-            self.manager.begin_scan(scan_settings(), calibration(), 200)
+            self.manager.begin_scan(scan_settings(), 200)
 
     def test_only_explicit_config_edit_writes_a_file(self):
         self.manager.save_config(URL, True)
@@ -165,12 +234,12 @@ class RamCloudTests(unittest.TestCase):
     def test_missing_receiver_stops_preparation_before_any_points(self):
         self.manager._url = ''
         with self.assertRaisesRegex(ValueError, 'Settings'):
-            self.manager.begin_scan(scan_settings(), calibration(), 0)
+            self.manager.begin_scan(scan_settings(), 0)
         self.assertEqual(len(self.buffer), 0)
         self.assertEqual(self.transport.starts, 0)
 
-    def test_precomputed_calibration_digest_is_reused_at_scan_start(self):
-        value = calibration()
-        self.manager.prepare_calibration(value)
-        with patch('firmware.ram_cloud.calibration_hash', side_effect=AssertionError('second hash')):
-            self.manager.begin_scan(scan_settings(), value, 0)
+    def test_manager_has_no_calibration_cache_or_methods(self):
+        self.assertFalse(hasattr(self.manager, "prepare_calibration"))
+        self.assertFalse(hasattr(self.manager, "invalidate_calibration"))
+        self.manager.begin_scan(scan_settings(), 0)
+        self.assertEqual("recording", self.manager.state)

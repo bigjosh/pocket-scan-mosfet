@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from firmware import model, storage
 from firmware.engine import Engine
-from test_model_engine import FakeInstrument, calibration, run_engine, settings
+from test_model_engine import FakeInstrument, run_engine, settings
 
 
 def legacy_settings():
@@ -108,27 +108,15 @@ class MicrovoltTests(unittest.TestCase):
 
     def test_engine_uses_exact_grid_and_physical_unit_rows(self):
         value = settings(drain_start_uv=0, drain_stop_uv=1300000, drain_step_uv=100000,
-                         source_voltage_uv=1000000, gate_start_uv=-1000000,
-                         gate_stop_uv=-1000000)
+                         source_voltage_uv=3300000, gate_start_uv=-3300000,
+                         gate_stop_uv=-3300000)
         instrument = FakeInstrument()
         engine = Engine(instrument)
-        engine.start_scan(value, calibration())
+        engine.start_scan(value)
         self.assertEqual(engine._drains[-1], 1300000)
         points = [row for event, row in run_engine(engine, instrument) if event == 'point']
         self.assertEqual(len(points), 14)
         self.assertEqual(points[-1]['requested_vds'], 1.3)
-        self.assertEqual(points[-1]['requested_vgs'], -1.0)
+        self.assertEqual(points[-1]['requested_vgs'], -3.3)
         self.assertAlmostEqual(points[-1]['vds'], 1.3)
         self.assertEqual(engine.state, 'complete')
-
-    def test_new_calibration_retains_exact_rail_identity(self):
-        value = settings(driver_supply_uv=20000001)
-        engine = Engine(FakeInstrument())
-        engine.start_calibration(value)
-        self.assertEqual(engine.calibration['metadata']['driver_supply_uv'], 20000001)
-        saved = calibration()
-        saved['metadata'].update(driver_supply_v=20.0, driver_supply_uv=20000001)
-        model.validate_calibration(saved, value)
-        value['driver_supply_uv'] = 20000000
-        with self.assertRaisesRegex(ValueError, 'supply changed'):
-            model.validate_calibration(saved, value)

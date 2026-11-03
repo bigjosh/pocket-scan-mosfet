@@ -1,4 +1,4 @@
-"""Atomic JSON transactions reserve real file resources before acquisition."""
+"""Atomic JSON transactions reserve real file resources before replacement."""
 
 import json
 from pathlib import Path
@@ -38,7 +38,7 @@ class FaultStream:
 class JsonTransactionTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
-        self.path = Path(self.directory.name) / "calibration.json"
+        self.path = Path(self.directory.name) / "settings.json"
         self.temporary = Path(str(self.path) + ".tmp")
         self.path.write_text('{"old":true}')
         self.before = self.path.read_bytes()

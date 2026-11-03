@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProductionSmokeTests(unittest.TestCase):
-    def run_probe(self, gate_code=2, timeout=False, read_fault=False):
+    def run_probe(self, gate_code=2, drain_code=0, timeout=False, read_fault=False):
         fake = MachineFake()
         now, schedule = [0], {}
-        fake.registers[0x44].update({1: 0, 2: 2640})
+        fake.registers[0x44].update({1: drain_code & 65535, 2: 2640})
         fake.registers[0x41].update({1: gate_code & 65535, 2: 10})
         original_read = fake.module.I2C.readfrom_mem
         original_write = fake.module.I2C.writeto_mem
@@ -42,13 +42,6 @@ class ProductionSmokeTests(unittest.TestCase):
                         and not (timeout and address == 0x41)):
                     fake.registers[address][6] |= 8
                     state[1] = True
-                if config & 7 == 7 and now[0] - state[2] >= 3000:
-                    raw = fake.registers[address][1]
-                    raw = raw - 65536 if raw & 32768 else raw
-                    threshold = fake.registers[address].get(7, 32767)
-                    threshold = threshold - 65536 if threshold & 32768 else threshold
-                    if raw > threshold:
-                        fake.registers[address][6] |= 16
             return original_read(bus, address, register, size)
 
         fake.module.PWM.duty_u16 = duty
@@ -80,42 +73,41 @@ class ProductionSmokeTests(unittest.TestCase):
         self.assertEqual(fake.pins[20], (1, 0))
         self.assertTrue(all(event[2] == 0 for event in fake.events if event[0] == "duty"))
         self.assertEqual(fake.events[-2:], [("pin", 21, 1, 0), ("pin", 20, 1, 0)])
-        for address, limit, shunt in ((0x44, model.DRAIN_CURRENT_LIMIT_A, model.DRAIN_SHUNT_OHM),
-                                      (0x41, model.GATE_CURRENT_LIMIT_A, model.GATE_SHUNT_OHM)):
+        for address in (0x44, 0x41):
             self.assertEqual(fake.registers[address][0], 0x4127)
-            self.assertEqual(fake.registers[address][7], int(limit * shunt / 2.5e-6))
-            self.assertEqual(fake.registers[address][6] & 0xFC03, 0x8001)
+            self.assertEqual(fake.registers[address][6] & 0xFC03, 0)
+        self.assertFalse(any(event[0] == "write" and event[2] == 7 for event in fake.events))
         return records, failure
 
-    def test_success_uses_real_driver_latches_and_restores_thresholds(self):
+    def test_success_uses_ready_latches_with_threshold_comparators_disabled(self):
         records, failure = self.run_probe()
         self.assertIsNone(failure)
         self.assertEqual(records[-1]["event"], "DONE")
         count = next(row for row in records if row["event"] == "COUNT64_PASS")
         self.assertLess(count["ready_us"][0], count["ready_us"][1])
         self.assertTrue(count["registers_stable"])
-        alert = next(row for row in records if row["event"] == "SYNTHETIC_ALERT_PASS")
-        self.assertEqual(alert["injected_signed_code"], 0)
-        self.assertIsNone(alert["raw_code"])
-        self.assertIsNone(alert["measured_value"])
-        self.assertFalse(alert["real_current_excursion"])
+        status = next(row for row in records if row["event"] == "THRESHOLD_COMPARATORS_DISABLED")
+        self.assertEqual(status["alert_mask"], 0)
+        self.assertFalse(status["physical_saturation_test"])
 
-    def test_zero_bias_uses_explicitly_labeled_minus_one_threshold_fallback(self):
-        records, failure = self.run_probe(gate_code=0)
-        self.assertIsNone(failure)
-        attempts = [row["injected_signed_code"] for row in records if row["event"] == "SYNTHETIC_THRESHOLD_TEST"]
-        self.assertEqual(attempts, [0, -1])
-        self.assertEqual(records[-1]["event"], "DONE")
+    def test_all_unsaturated_codes_remain_measurable(self):
+        for code in (0, -2, 32766, -32767):
+            with self.subTest(code=code):
+                records, failure = self.run_probe(gate_code=code, drain_code=code)
+                self.assertIsNone(failure)
+                self.assertEqual(records[-1]["event"], "DONE")
 
-    def test_timeout_or_no_alert_never_claims_pass_and_still_restores(self):
-        for changes in ({"timeout": True}, {"gate_code": -2}, {"read_fault": True}):
+    def test_timeout_read_failure_or_saturation_never_claims_pass(self):
+        for changes in ({"timeout": True}, {"read_fault": True},
+                        {"gate_code": 32767}, {"gate_code": -32768},
+                        {"drain_code": 32767}, {"drain_code": -32768}):
             with self.subTest(changes=changes):
                 records, failure = self.run_probe(**changes)
                 self.assertIsNotNone(failure)
                 self.assertFalse(any(row["event"] == "DONE" for row in records))
                 self.assertEqual(records[-1]["event"], "CLEANUP")
                 self.assertFalse(records[-1]["passed"])
-                self.assertTrue(records[-1]["thresholds_restored"])
+                self.assertTrue(records[-1]["configuration_restored"])
                 self.assertTrue(records[-1]["outputs_low"])
 
 

@@ -94,7 +94,7 @@
 <text x="840" y="631" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Stays activated during soft reset; no GPIO controls it.</text>
 <text x="840" y="663" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Source and R13 share 3.3 V; source connection confirmed.</text>
 <rect x="30" y="765" width="1540" height="275" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
-<text x="50" y="797" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Readback - current baseline and actual terminal voltages</text>
+<text x="50" y="797" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Readback - optional current baseline and actual terminal voltages</text>
 <text x="60" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">INA_D - address 0x44</text>
 <text x="60" y="875" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS = D_DRV; IN+ = D_DRV</text>
 <text x="60" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">IN- = DUT D; shunt nominal 1 ohm</text>
@@ -110,7 +110,7 @@
 <text x="1080" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VGS = VG - configured VS</text>
 <text x="1080" y="937" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VS = measured 3.3 V rail, entered manually</text>
 <text x="1080" y="968" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">No ADC3 source or battery-rail readback</text>
-<text x="60" y="1012" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">VSH = IN+ - IN-. Correct current only; do not subtract current baseline from voltage. Refresh baselines after the wiring change.</text>
+<text x="60" y="1012" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">VSH = IN+ - IN-. Current may subtract open-output baseline. Stops use raw shunt codes 0x7fff / 0x8000.</text>
 <rect x="30" y="1070" width="750" height="360" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
 <text x="50" y="1102" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Logic / I2C / breakout wiring</text>
 <text x="55" y="1135" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">INA VCC -&gt; Pico 3V3; INA GND -&gt; Pico GND.</text>
@@ -124,13 +124,15 @@
 <rect x="810" y="1070" width="760" height="360" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
 <text x="830" y="1102" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Verification before reconnecting a DUT</text>
 <text x="835" y="1135" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1. Disconnect DUT and probes; leave shunts unbridged.</text>
-<text x="835" y="1168" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2. Confirm source at 3V3 and both feedback bottoms at GND.</text>
-<text x="835" y="1201" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">3. Measure VS and switched battery V+; enter actual values.</text>
-<text x="835" y="1234" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">4. Check zero PWM: ideal drain near VS, gate near GND.</text>
-<text x="835" y="1267" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">5. Recalibrate both drive maps and open-output baselines.</text>
-<text x="835" y="1300" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">6. Verify start/stop and controlled soft-reset behavior unloaded.</text>
-<text x="835" y="1333" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Relay power removal is not drain/gate isolation.</text>
-<text x="835" y="1366" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Power sequencing and hardware current compliance remain open.</text>
+<text x="835" y="1163" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2. Confirm source at 3V3 and both feedback bottoms at GND.</text>
+<text x="835" y="1191" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">3. Measure VS and switched battery V+; enter actual values.</text>
+<text x="835" y="1219" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">4. Check zero PWM: ideal drain near VS, gate near GND.</text>
+<text x="835" y="1247" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">5. Calibrate open-output baselines in Advanced.</text>
+<text x="835" y="1275" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">6. PWM uses nominal gain, optionally anchored at zero.</text>
+<text x="835" y="1303" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">7. Current subtracts its baseline at measured VBUS.</text>
+<text x="835" y="1331" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">8. Verify start/stop and soft-reset behavior unloaded.</text>
+<text x="835" y="1359" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Relay power removal is not drain/gate isolation.</text>
+<text x="835" y="1387" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Power sequencing / hardware compliance need verification.</text>
 <text x="40" y="1475" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">An unpowered LM358 may load a biased-source DUT through its body diode. Relay delay / rail collapse need separate verification.</text>
 <text x="40" y="1528" font-size="16" fill="#526674" text-anchor="start" font-weight="normal">Revision G | Docs 2026-11-03 | Source / module control wiring confirmed; relay internals and power transients unverified</text>
 </svg>

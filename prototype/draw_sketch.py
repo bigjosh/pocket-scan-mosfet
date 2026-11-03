@@ -13,7 +13,7 @@ a normally open relay-module contact to U1 pin 8. Module VCC and ACTIVATE
 both use 3.3 V; its GND uses common ground. Internal suppression is unverified.
 The relay module is a power switch, not a software-controlled output interlock.
 Source reference is manual in firmware; ADC3 does not read this 3.3 V rail.
-C5 is fitted; C6 installation is unconfirmed. Recorded calibration and hardware
+C5 is fitted; C6 installation is unconfirmed. Direct-drive hardware
 limitations are in firmware/README.md. The fixture numbering is not DUT pin order:
 onsemi 2N7000G, flat marked face toward you, leads down, is 1=S, 2=G, 3=D.
 """
@@ -154,11 +154,11 @@ def overview():
     s.text(260,783,'3V3 / pin 36 -> DUT source (VS) and drain R13 reference',21,weight='bold')
     s.box(40,845,1515,130,fill='#fff5e9')
     s.lines(65,880,[
-        'R1 = 1k 5% fitted. Ideal zero-PWM drain = VS; actual floors require matching calibration.',
+        'R1 = 1k 5% fitted. Nominal VD = 3.3 + 22.44*duty; record actual measured voltage.',
         'Relay stays energized through soft reset. It switches the battery supply, not the DUT drain or gate connections.',
-        'K1 module current and suppression are unverified. Recalibrate after hardware / supply changes.',
+        'INA shunt full-scale stop, both signs: 0x7fff / 0x8000 (~104 mA drain, ~128 uA gate).',
     ],19,gap=32)
-    s.finish('Revision G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Calibration / present limits: firmware/README.md')
+    s.finish('Revision G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Direct drive / ADC stops: firmware/README.md')
 
 
 def channel(s, offset, name, amp, gpio, pin_plus, pin_minus, pin_out, shunt, address):
@@ -220,7 +220,7 @@ def drivers():
     s.text(60,1247,'Pico 3V3(OUT) / physical pin 36',20,weight='bold')
     s.wire((60,1270),(710,1270));s.terminal(710,1270)
     s.text(735,1277,'DUT S / VS = nominal 3.3 V',23,weight='bold')
-    s.text(60,1310,'Actual terminal = VBUS - raw shunt voltage. VDS / VGS subtract configured VS. Recalibrate after hardware / supply changes.',18)
+    s.text(60,1310,'Terminal = VBUS - raw VSH; VDS/VGS subtract VS. I = (VSH - baseline at VBUS) / R when calibrated.',18)
     s.finish('onsemi 2N7000G: flat marked face toward you, leads down, left to right = 1 Source / 2 Gate / 3 Drain. J1 is a separate fixture.')
 
 
@@ -271,7 +271,7 @@ def power_and_sensing():
         'Source and R13 share 3.3 V; source connection confirmed.',
     ],18,gap=32)
 
-    s.box(30,765,1540,275,'Readback - current baseline and actual terminal voltages')
+    s.box(30,765,1540,275,'Readback - optional current baseline and actual terminal voltages')
     for x,title,rows in [
         (60,'INA_D - address 0x44',[
             'VBUS = D_DRV; IN+ = D_DRV',
@@ -293,7 +293,7 @@ def power_and_sensing():
         ]),
     ]:
         s.text(x,833,title,21,weight='bold');s.lines(x,875,rows,18,gap=31)
-    s.text(60,1012,'VSH = IN+ - IN-. Correct current only; do not subtract current baseline from voltage. Refresh baselines after the wiring change.',18,ACCENT)
+    s.text(60,1012,'VSH = IN+ - IN-. Current may subtract open-output baseline. Stops use raw shunt codes 0x7fff / 0x8000.',18,ACCENT)
 
     s.box(30,1070,750,360,'Logic / I2C / breakout wiring')
     s.lines(55,1135,[
@@ -312,11 +312,13 @@ def power_and_sensing():
         '2. Confirm source at 3V3 and both feedback bottoms at GND.',
         '3. Measure VS and switched battery V+; enter actual values.',
         '4. Check zero PWM: ideal drain near VS, gate near GND.',
-        '5. Recalibrate both drive maps and open-output baselines.',
-        '6. Verify start/stop and controlled soft-reset behavior unloaded.',
+        '5. Calibrate open-output baselines in Advanced.',
+        '6. PWM uses nominal gain, optionally anchored at zero.',
+        '7. Current subtracts its baseline at measured VBUS.',
+        '8. Verify start/stop and soft-reset behavior unloaded.',
         'Relay power removal is not drain/gate isolation.',
-        'Power sequencing and hardware current compliance remain open.',
-    ],18,gap=33)
+        'Power sequencing / hardware compliance need verification.',
+    ],18,gap=28)
     s.text(40,1475,'An unpowered LM358 may load a biased-source DUT through its body diode. Relay delay / rail collapse need separate verification.',18,ACCENT)
     s.finish('Revision G | Docs 2026-11-03 | Source / module control wiring confirmed; relay internals and power transients unverified')
 

@@ -15,7 +15,7 @@ source and output hashes. Keep assertions and source line numbers (-O0).
 Deployment is deliberately separate. In each device directory foo.py takes
 precedence over foo.mpy; back up/remove only the corresponding public .py
 modules before testing the .mpy deployment. Preserve main.py, boot.py, settings,
-calibration, credentials, CA bundle and old scan files. Do not copy a stale
+credentials, CA bundle and old scan files. Retired calibration modules are not deployed. Do not copy a stale
 build: --check must pass after every source edit and before device transfer.
 
 Reference: https://docs.micropython.org/en/v1.29.0/reference/mpyfiles.html

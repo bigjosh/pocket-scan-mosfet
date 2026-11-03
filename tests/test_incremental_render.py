@@ -1,7 +1,8 @@
-"""Bounded LCD updates preserve measured points and off-target curve gaps."""
+"""Bounded LCD updates preserve measured points and commanded gate curves."""
 import unittest
 
 from firmware import model
+from firmware.ram_scan import PackedScanBuffer
 from firmware.ui import App, AMBER, BG, GRID, INK, MUTED, TEAL
 from test_ui import FakeDisplay, FakeInputs, MemoryStore
 
@@ -39,7 +40,9 @@ class IncrementalRenderTests(unittest.TestCase):
         self.display, self.engine = RecordingDisplay(), IdleEngine()
         settings = dict(model.DEFAULT_SETTINGS, drain_start_uv=0, drain_stop_uv=1000000,
                         drain_step_uv=100000)
-        self.app = App(self.display, FakeInputs(), self.engine, settings, store=MemoryStore())
+        self.buffer = PackedScanBuffer(capacity=128)
+        self.app = App(self.display, FakeInputs(), self.engine, settings, store=MemoryStore(),
+                       scan_buffer=self.buffer, restart=lambda: None)
         self.app.latest = self.row()
         self.app.goto("scan")
         self.app.render()
@@ -66,18 +69,6 @@ class IncrementalRenderTests(unittest.TestCase):
         self.assertEqual([("fill_rect", 338, 67, 142, 16, BG),
                           ("text", "0.200", 338, 67, INK, 2)], self.display.calls)
 
-    def test_limit_color_changes_even_when_numbers_and_request_do_not(self):
-        self.app.latest = self.row(drain_voltage_limited=True)
-        self.app._render_live()
-        self.assertIn(("text", "VDS  V", 338, 52, AMBER, 1), self.display.calls)
-        self.assertIn(("text", "SET 0.5 V", 338, 85, AMBER, 1), self.display.calls)
-        self.assertFalse(any(call[0] == "text" and call[3] in (67, 110, 153, 196)
-                             for call in self.display.calls))
-        self.display.calls.clear()
-        self.app.latest = self.row()
-        self.app._render_live()
-        self.assertIn(("text", "VDS  V", 338, 52, MUTED, 1), self.display.calls)
-        self.assertIn(("text", "SET 0.5 V", 338, 85, MUTED, 1), self.display.calls)
 
     def test_missing_request_erases_old_text(self):
         del self.app.latest["requested_vgs"]
@@ -108,31 +99,13 @@ class IncrementalRenderTests(unittest.TestCase):
         self.app._render_live()
         self.assertTrue(any(call[:2] == ("text", "--") for call in self.display.calls))
 
-    def test_calibration_panel_unchanged_no_work_and_shorter_text_is_erased(self):
-        self.app.goto("calibrating")
-        self.engine.progress = 0.1
-        self.app.render()
-        self.display.calls.clear()
-        self.app._render_live()
-        self.assertEqual([], self.display.calls)
-        self.engine.progress = 0.01
-        self.app._render_live()
-        self.assertIn(("fill_rect", 16, 164, 448, 16, BG), self.display.calls)
-        self.assertNotIn(("fill_rect", 16, 159, 448, 65, BG), self.display.calls)
 
-    def test_partial_screen_has_static_fault_instead_of_transient_live_numbers(self):
-        self.app._scan_fault = {"kind": "current_limit", "channel": "drain"}
-        self.app.goto("partial")
-        self.app.render()
-        self.assertIn("CURRENT LIMIT", self.display.labels)
-        self.assertNotIn("VDS  V", self.display.labels)
-        self.display.calls.clear()
-        self.app._render_live()
-        self.assertEqual([], self.display.calls)
 
     def test_add_point_never_draws_and_dirty_axes_are_consumed_with_four_points(self):
         for index in range(9):
-            self.app._add_point(self.row(vds=0.1 * index, id_a=(index + 1) * 10e-6))
+            row = self.row(vds=0.1 * index, id_a=(index + 1) * 10e-6)
+            self.buffer.append(row)
+            self.app._add_point(row)
         self.assertEqual([], self.display.calls)
         self.assertTrue(self.app._plot_axes_dirty)
         self.assertEqual(0, self.app._plot_cursor)
@@ -149,7 +122,9 @@ class IncrementalRenderTests(unittest.TestCase):
     def test_current_ramp_uses_geometric_headroom_and_few_rescales(self):
         rescales = 0
         for current in range(1, 101):
-            self.app._add_point(self.row(id_a=current * 1e-6))
+            row = self.row(id_a=current * 1e-6)
+            self.buffer.append(row)
+            self.app._add_point(row)
             if self.app._plot_axes_dirty:
                 rescales += 1
                 self.assertGreaterEqual(self.app._plot_ymax, current * 1.5 - 1e-9)
@@ -161,7 +136,9 @@ class IncrementalRenderTests(unittest.TestCase):
         rescales = 0
         for index in range(1, 101):
             measured = 1.0 + index / 1000
-            self.app._add_point(self.row(vds=measured))
+            row = self.row(vds=measured)
+            self.buffer.append(row)
+            self.app._add_point(row)
             if self.app._plot_axes_dirty:
                 rescales += 1
                 self.app._plot_axes_dirty = False

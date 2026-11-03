@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from firmware import engine as engine_module, model
 from firmware.engine import Engine, STATUS_POLL_MS
-from test_model_engine import FakeInstrument, calibration, settings
+from test_model_engine import FakeInstrument, settings
 
 
 class Clock:
@@ -51,7 +51,7 @@ class SettleDeadlineTests(unittest.TestCase):
                 scanner = Engine(hardware, clock_ms=clock)
                 scanner.start_scan(settings(drain_stop_v=2, drain_step_v=1,
                                              gate_stop_v=2, gate_step_v=1,
-                                             settle_ms=dwell), calibration())
+                                             settle_ms=dwell))
                 points = []
                 self.assertFalse(scanner.waiting_for_settle)
                 for unused in range(3000):
@@ -63,7 +63,7 @@ class SettleDeadlineTests(unittest.TestCase):
                     clock.advance(60 if scanner.waiting_for_settle else 5)
                 self.assertEqual(scanner.state, "complete", scanner.error)
                 self.assertEqual(len(points), 4)
-                self.assertEqual(len(hardware.triggers), 8)
+                self.assertEqual(len(hardware.triggers), 4)
                 for triggered, _ in hardware.triggers:
                     command_finished = max(when for when, _, _ in hardware.timed_commands
                                            if when <= triggered)
@@ -75,17 +75,10 @@ class SettleDeadlineTests(unittest.TestCase):
         clock = Clock()
         hardware = LatentInstrument(clock)
         scanner = Engine(hardware, clock_ms=clock)
-        scanner.start_scan(settings(settle_ms=100), calibration())
-        reset_batch = scanner._reset_batch
-
-        def slow_setup():
-            reset_batch()
-            clock.advance(23)
-
-        scanner._reset_batch = slow_setup
+        scanner.start_scan(settings(settle_ms=100))
         scanner.tick(clock())
-        self.assertEqual(clock.now, 60)  # 37 ms command + 23 ms retained setup.
-        self.assertEqual(scanner._deadline, 160)
+        self.assertEqual(clock.now, 74)  # Both PWM writes finish before dwell.
+        self.assertEqual(scanner._deadline, 174)
         self.assertTrue(scanner.waiting_for_settle)
         clock.advance(99)
         scanner.tick(clock())
@@ -93,37 +86,20 @@ class SettleDeadlineTests(unittest.TestCase):
         clock.advance(1 + STATUS_POLL_MS)
         scanner.tick(clock())
         self.assertEqual(len(hardware.triggers), 1)
-        self.assertGreaterEqual(hardware.triggers[0][0], 160)
+        self.assertGreaterEqual(hardware.triggers[0][0], 174)
         self.assertFalse(scanner.waiting_for_settle)  # Conversion is now pending.
-
-    def test_correction_retry_deadline_starts_after_the_corrected_pwm_write(self):
-        for phase in ("park_drain", "settle_gate", "settle"):
-            with self.subTest(phase=phase):
-                clock = Clock()
-                hardware = LatentInstrument(clock)
-                scanner = Engine(hardware, clock_ms=clock)
-                scanner.start_scan(settings(source_voltage_v=1, settle_ms=100), calibration())
-                scanner.tick(clock())
-                scanner._phase = phase
-                clock.advance(30)  # Completed read/check work after tick entry.
-                self.assertFalse(scanner._check_settled(
-                    {"drain": {"terminal_v": 0.95}}, {"drain": 1.0}, ("drain",)))
-                self.assertEqual(scanner._clock, clock.now)
-                self.assertEqual(scanner._deadline, clock.now + 100)
-                self.assertEqual(hardware.timed_commands[-1][0], clock.now)
-                self.assertTrue(scanner.waiting_for_settle)
 
     def test_post_command_deadline_handles_native_tick_wrap(self):
         clock = Clock(1000, period=1024)
         hardware = LatentInstrument(clock)
         scanner = Engine(hardware, clock_ms=clock)
-        scanner.start_scan(settings(settle_ms=100), calibration())
+        scanner.start_scan(settings(settle_ms=100))
         wrap_diff = lambda now, before: (now - before + 512) % 1024 - 512
         with patch.object(engine_module, "_ticks_diff", wrap_diff):
             scanner.tick(clock())
-            self.assertEqual(clock(), 13)
-            self.assertEqual(scanner._clock, 37)
-            self.assertEqual(scanner._deadline, 137)
+            self.assertEqual(clock(), 50)
+            self.assertEqual(scanner._clock, 74)
+            self.assertEqual(scanner._deadline, 174)
             clock.advance(99)
             scanner.tick(clock())
             self.assertEqual(hardware.triggers, [])
@@ -138,12 +114,12 @@ class SettleDeadlineTests(unittest.TestCase):
         hardware = LatentInstrument(clock)
         with patch.object(engine_module, "_ticks_ms", clock):
             scanner = Engine(hardware)
-        scanner.start_scan(settings(settle_ms=100), calibration())
+        scanner.start_scan(settings(settle_ms=100))
         scanner.tick(clock())
-        self.assertEqual(scanner._deadline, 137)
+        self.assertEqual(scanner._deadline, 174)
         with patch.object(engine_module, "_ticks_ms", None):
             host = Engine(FakeInstrument())
-        host.start_scan(settings(settle_ms=100), calibration())
+        host.start_scan(settings(settle_ms=100))
         host.tick(500)
         self.assertEqual(host._deadline, 100)
 

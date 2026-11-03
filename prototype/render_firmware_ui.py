@@ -18,7 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from firmware import model
-from firmware.ui import App, COUNT_FIELDS
+from firmware.ui import App, UPLOAD_FAILURE
+from firmware.ram_scan import PackedScanBuffer
 
 
 def rgb888(color):
@@ -115,6 +116,7 @@ class PreviewInputs:
 
 
 class PreviewEngine:
+    state = "idle"
     progress = 0.0
     latest = None
 
@@ -133,31 +135,18 @@ class PreviewWifi:
 
 
 class PreviewCloud:
-    status = {"state": "queued", "message": "Saved scans are waiting to upload",
-              "pending_count": 2, "saved_count": 5, "configured": True, "enabled": True}
-
-
-def calibration():
-    return {
-        "version": 1,
-        "metadata": {"driver_supply_v": 5.0, "pwm_hz": model.PWM_HZ},
-        "channels": {
-            role: {"shunt_ohm": resistance,
-                   "points": [{"terminal_v": voltage,
-                               "shunt_v": 0.0,
-                               "duty": voltage / model.PWM_FULL_SCALE_V}
-                              for voltage in (0.0, 1.5, 3.0)]}
-            for role, resistance in (("drain", model.DRAIN_SHUNT_OHM),
-                                     ("gate", model.GATE_SHUNT_OHM))
-        },
-    }
+    state = "uploading"
+    upload_stage = 2
+    upload_sent, upload_total = 3700, 10000
+    status = {"state": "uploading", "message": "Uploading scan", "configured": True, "enabled": True}
 
 
 def preview_app():
     display = PillowDisplay()
     engine = PreviewEngine()
-    app = App(display, PreviewInputs(), engine,
-              settings=dict(model.DEFAULT_SETTINGS), calibration=calibration())
+    app = App(display, PreviewInputs(), engine, settings=dict(model.DEFAULT_SETTINGS),
+              cloud=PreviewCloud(), scan_buffer=PackedScanBuffer(bytearray(65536)),
+              restart=lambda: None)
     app.draft = dict(app.settings)
     return app
 
@@ -170,15 +159,27 @@ def simulated_rows():
             current = max(0.0, gate - 0.7) ** 2 * (1.0 - 2.718281828 ** (-drain * 3)) * 0.0003
             yield {"vds": drain, "vgs": gate, "id_a": current,
                    "ig_a": (gate - 0.9) * 0.08e-6,
-                   "id_std_a": 0.2e-6, "ig_std_a": 0.02e-6,
-                   "curve": curve, "batches_completed": 10,
-                   "requested_vds": drain, "requested_vgs": gate,
-                   "drain_voltage_limited": False, "gate_voltage_limited": False}
+                   "curve": curve, "index": curve * 11 + index, "acquisition_blocks_completed": 1,
+                   "requested_vds": drain, "requested_vgs": gate}
+
+
+def fill_simulated_scan(app, count):
+    app.settings.update(drain_start_uv=0, drain_stop_uv=2000000, drain_step_uv=200000,
+                        gate_start_uv=500000, gate_stop_uv=2000000, gate_step_uv=500000)
+    app.clear_results()
+    app._ram_drain_count = 11
+    for index, row in enumerate(simulated_rows()):
+        if index >= count:
+            break
+        app._scan_buffer.append(row)
+        app._add_point(row)
+        app.latest = row
+    app.engine.progress = count / 44
 
 
 def save_screen(app, title, output, simulated=False):
     app.render()
-    if app.screen in ("scan", "complete", "partial"):
+    if app.screen == "scan":
         while app._plot_cursor < len(app.curves):
             app._draw_points()
     # Leave the complete firmware image at its actual resolution. The caption
@@ -199,50 +200,25 @@ def render_all(output):
     screens = []
     for title, screen in (("Home", "home"), ("Settings", "settings"),
                           ("Advanced", "advanced"), ("Averaging", "averaging"),
-                          ("Keypad", "edit"), ("Count keypad", "edit"),
-                          ("Calibration confirmation", "confirm_calibration"),
-                          ("Calibration", "calibrating"),
-                          ("Scan", "scan"), ("Complete", "complete")):
+                          ("Keypad", "edit"), ("Preparing", "preparing"),
+                          ("Scan", "scan"), ("Uploading 37 percent", "upload"),
+                          ("Confirming 100 percent", "upload"), ("Upload confirmed", "upload"),
+                          ("Partial upload", "upload"), ("Restarting", "restarting")):
         app = preview_app()
         app.screen = screen
         if screen == "edit":
-            if title == "Count keypad":
-                app.edit_key = "samples_per_batch"
-                app.edit_label = COUNT_FIELDS[app.edit_key][0]
-                app.edit_value = "50"
-                app.edit_integer = True
-            else:
-                app.edit_label, app.edit_value = "VGS stop (V)", "2.000"
-        elif screen == "calibrating":
-            app.engine.progress = 0.42
-            app.latest = {"vds": 1.3, "vgs": 1.3}
-        elif screen in ("scan", "complete"):
-            points = list(simulated_rows())
-            if screen == "scan":
-                points = points[:29]
-            for row in points:
-                app._add_point(row)
-            app.latest = points[-1]
-            app.engine.progress = len(points) / 44
-        screens.append(save_screen(app, title, output, screen in ("scan", "complete")))
-    for title, screen, count in (("Voltage limited scan", "scan", 2),
-                                  ("Voltage limited complete", "complete", 3)):
-        app = preview_app()
-        app.settings.update(drain_start_uv=4000000, drain_stop_uv=5000000,
-                            gate_start_uv=4000000, gate_stop_uv=4000000)
-        app.clear_results()
-        app.screen = screen
-        for index in range(count):
-            row = {"vds": 3.48 + index * 0.015, "vgs": 2.81,
-                   "id_a": (120 + index * 4) * 1e-6, "ig_a": 0.05e-6,
-                   "id_std_a": 0.2e-6, "ig_std_a": 0.02e-6,
-                   "curve": 0, "batches_completed": 10,
-                   "requested_vds": 4.0 + index * 0.5, "requested_vgs": 4.0,
-                   "drain_voltage_limited": True, "gate_voltage_limited": True}
-            app._add_point(row)
-        app.latest = row
-        app.engine.progress = count / 3
-        screens.append(save_screen(app, title, output, simulated=True))
+            app.edit_label, app.edit_value = "VGS stop (V)", "2.000"
+        if screen in ("scan", "upload"):
+            fill_simulated_scan(app, 29 if screen == "scan" else 44)
+        if title == "Partial upload":
+            app._scan_fault = {"channel": "gate", "kind": "shunt_saturation"}
+        if title == "Confirming 100 percent":
+            app.cloud.upload_stage = 3
+            app.cloud.upload_sent = app.cloud.upload_total
+        elif title == "Upload confirmed":
+            app.cloud.state, app.cloud.upload_stage = "complete", 4
+            app.cloud.upload_sent = app.cloud.upload_total
+        screens.append(save_screen(app, title, output, screen in ("scan", "upload")))
     for title, screen, mode in (("WiFi", "wifi", "abc"),
                                 ("WiFi search", "wifi_search", "abc"),
                                 ("WiFi networks", "wifi_list", "abc"),
@@ -267,56 +243,23 @@ def render_all(output):
         app._wifi_keyboard = mode
         app._wifi_connect_failed = False
         screens.append(save_screen(app, title, output, simulated=True))
-    for title, screen in (("Cloud settings", "cloud"), ("Cloud URL editor", "cloud_url"),
-                           ("Save scan confirmation", "complete")):
+    for title, screen in (("Cloud settings", "cloud"), ("Cloud URL editor", "cloud_url")):
         app = preview_app()
-        app.cloud = PreviewCloud()
         app.screen = screen
         # Synthetic endpoint only. No saved configuration or credentials read.
         app._cloud_url_draft = "https://script.google.com/macros/s/EXAMPLE_ONLY/exec"
-        app._cloud_enabled_draft = True
         app._cloud_url_edit = app._cloud_url_draft
-        if screen == "complete":
-            for row in simulated_rows():
-                app._add_point(row)
-            app.latest = row
-            app.engine.progress = 1.0
         screens.append(save_screen(app, title, output, simulated=True))
-    for count in (0, 4):
+    for title, screen, notice in (("Upload failure", "upload_error", UPLOAD_FAILURE),
+                                  ("Scan fault", "scan_error", "Gate shunt saturation. Outputs stopped.")):
         app = preview_app()
-        app.cloud = PreviewCloud()
-        app.screen = "partial"
-        app._scan_fault = {"channel": "gate", "kind": "shunt_saturation"}
-        for index, row in enumerate(simulated_rows()):
-            if index == count:
-                break
-            app._add_point(row)
-            app.latest = row
-        app.engine.progress = count / 44
-        screens.append(save_screen(app, "Over range %d points" % count, output, simulated=True))
-    for title, screen, pending in (("Storage full", "storage", True),
-                                     ("Storage ready", "storage", False),
-                                     ("Delete queued scan", "storage_confirm", True),
-                                     ("Delete uploaded scan", "storage_confirm", False)):
-        app = preview_app()
-        app.screen = screen
-        app._storage_rows = [{"scan_id": "abcd0123-000000000000000%d" % index,
-                              "status": "pending" if index < 2 else "sent",
-                              "size_bytes": 184000 + index * 650,
-                              "point_count": 2401, "created_utc": "2026-11-01T15:40:00Z",
-                              "damaged": False} for index in range(3)]
-        app._storage_capacity = {"actual_free_bytes": 22000 if pending else 400000,
-                                  "reclaimable_bytes": 186000, "required_bytes": 258068,
-                                  "can_start": not pending, "reason": "space" if pending else None,
-                                  "pending_count": 2, "pending_limit": 20}
-        app._storage_selected = app._storage_rows[0 if pending else 2]
-        screens.append(save_screen(app, title, output, simulated=True))
-    # Also cover first boot and a representative error, since these are common
-    # paths during breadboard bring-up and have different text constraints.
+        app.screen, app.notice = screen, notice
+        if screen == "upload_error":
+            fill_simulated_scan(app, 44)
+            app.cloud.state = "error"
+        screens.append(save_screen(app, title, output, screen == "upload_error"))
     app = preview_app()
-    app.calibration = None
-    screens.append(save_screen(app, "Calibration required", output))
-    app.message("Calibration could not be saved: filesystem is full. The previous calibration remains available.")
+    app.message("Settings could not be saved. Please retry.")
     screens.append(save_screen(app, "Notice", output))
     sheet = Image.new("RGB", (480 * 2 + 24, ((len(screens) + 1) // 2) * 360 + 8), "#c5d2da")
     for index, path in enumerate(screens):

@@ -33,13 +33,43 @@
       0.022495
     ],
     "conditions": "1k 5% R1 fitted; outputs open, probes removed, shunts unbridged; source configured as 3.3 V, not measured by this check",
-    "is_full_calibration": false,
+    "historical_only": true,
     "evidence": "output/smoke-test/source33-zero-1k-final-20261102.log"
   },
   "nominal_driver_supply_v": 18,
   "settle_ms": 100,
   "ina_average_count": 64,
   "acquisition_mode": "ina226_triggered_v1",
+  "current_stop_policy": "shunt_adc_full_scale_readback",
+  "ina_shunt_comparators_enabled": false,
+  "adc_shunt_full_scale_raw_codes": [
+    "0x7fff",
+    "0x8000"
+  ],
+  "adc_shunt_lsb_v": 2.5e-06,
+  "current_at_shunt_full_scale_a": {
+    "drain": {
+      "negative": -0.10382762991128011,
+      "positive": 0.10382446134347276
+    },
+    "gate": {
+      "negative": -0.0001284012539184953,
+      "positive": 0.0001283973354231975
+    }
+  },
+  "adc_shunt_rail_stop": true,
+  "measurement_correction": "optional_open_output_baseline",
+  "current_baseline": {
+    "file": "current-baseline.bin",
+    "format": "PSB1",
+    "lookup": "linear_endpoint_hold",
+    "maximum_knots_per_channel": 65,
+    "blocks_per_knot": 4,
+    "buffer_bytes": 1720,
+    "zero_reference": "configured_source",
+    "zero_max_residual_uv": 100000,
+    "voltage_readback_uses_raw_shunt": true
+  },
   "components": {
     "A1": {
       "part": "Pico 2 W (scanner connections only)",
@@ -355,21 +385,21 @@
     "internal_driver_and_suppression": "not verified"
   },
   "notes": [
-    "User confirmed source J1.3 on Pico 3V3 pin 36 and the 6.8k offset resistor fitted. Zero-drive checks and open-output calibration are recorded in firmware/README.md; this is not a complete hardware validation.",
+    "User confirmed source J1.3 on Pico 3V3 pin 36 and the 6.8k offset resistor fitted. Firmware uses resistor math with optional source-zero anchor and open-output current baseline; historical checks do not establish complete hardware validation.",
     "INA226 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.",
     "onsemi 2N7000G: flat marked face toward you, leads down, left to right = pin 1 Source, pin 2 Gate, pin 3 Drain. Connect fixture J1.1 to DUT pin 3, J1.2 to pin 2, J1.3 to pin 1. Manufacturer datasheet, Mouser mirror: https://www.mouser.com/datasheet/2/308/2N7000-D-33553.pdf pages 1 and 4.",
     "C5 is fitted. C6 is shown as intended bulk decoupling; installation remains unconfirmed.",
     "U2 drain 0x44: A1 = 3V3, A0 = GND. U3 gate 0x41: A1 = GND, A0 = 3V3.",
     "R13 is from 3V3 to drain IN1+ pin 3; R4 stays grounded. Gate topology unchanged.",
     "R1 is now 1k 5%, replacing the temporary 1.1k and earlier incorrect 10k. R6 remains nominal 1k, not remeasured.",
-    "Ideal zero-PWM drain is VS. Resistor tolerances can put the actual floor above or below VS; recalibrate drive/baseline after hardware or supply changes. The early zero-drive check does not establish present floor coverage.",
+    "Ideal zero-PWM drain is VS. Resistor tolerances can put the actual floor above or below VS. Calibration records the closest source-relative zero and residual; it cannot remove an unreachable floor. Actual voltages remain authoritative.",
     "Historical temporary 1.1k check: drain mean 3.667564 V, gate mean 0.008904 V; see source33-zero-1k1-reseated-20261102.log. These are not the current resistor results.",
     "K1 is the user-linked relay module B0F3TM3RZ6. Labels name used external functions, not header positions.",
     "User confirmed module VCC and ACTIVATE tied to 3V3, GND to ground. It remains enabled during soft reset.",
     "LM358 V+ is nominal 18 V relative to GND; batteries no longer float above source. VBUS/VSYS have no scanner wires.",
-    "3V3 is nominal: measure under load and enter actual VS. No source ADC3 readback. Old 5 V calibration must be replaced.",
+    "3V3 is nominal: measure under load and enter actual VS. No source ADC3 readback. PWM reference and bias are fixed nominal circuit constants.",
     "Module internal driver and suppression are unverified. No external diode across module power is specified as coil protection.",
-    "3V3 load must absorb source-return current; keep 5 mA drain limit pending load tests. Power switching does not guarantee DUT isolation.",
+    "3V3 load must absorb source-return current; ADC range does not establish rail current capability. Power switching does not guarantee DUT isolation.",
     "Existing breakout I2C pull-ups go to 3V3; external R11/R12 omitted. C7/C8 may already be fitted.",
     "R2/R7/C2/C4 removed. Drain RC 8.72 ms with R13, gate RC 10 ms nominal. Polarized C1/C3: terminal 1 positive.",
     "Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate 680 ohm nominal, provisional scale 638 ohm."

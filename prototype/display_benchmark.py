@@ -1,7 +1,7 @@
 """Measure the first 100 points of the SAVED scan, then cancel and discard.
 
-This is a powered DUT scan using the user's existing voltage grid, calibration
-and protection limits. It must only run when that scan is authorized. There
+This is a powered DUT scan using the user's existing voltage grid and
+protection limits. It must only run when that scan is authorized. There
 are no settings writes or uploads. Production cleanup disables the outputs;
 the host must restart normal main.py after the helper returns.
 """

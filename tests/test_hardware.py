@@ -7,7 +7,7 @@ import types
 import unittest
 from unittest.mock import patch
 
-from firmware.engine import OverrangeError
+from firmware.engine import Engine, OverrangeError
 
 
 class MachineFake:
@@ -77,6 +77,9 @@ class MachineFake:
                     value = owner.bad_config
                 return bytes((value >> 8, value & 255))
 
+            def readfrom_mem_into(self, address, register, buffer):
+                buffer[:] = self.readfrom_mem(address, register, len(buffer))
+
             def writeto_mem(self, address, register, data):
                 if owner.write_error == (address, register):
                     raise OSError("I2C write injected failure")
@@ -138,6 +141,42 @@ class InstrumentTests(unittest.TestCase):
         self.assertAlmostEqual(pair["gate"]["shunt_v"], -0.0000025)
         self.assertAlmostEqual(pair["gate"]["terminal_v"], 0.0012525)
 
+    def test_calibration_integer_read_reuses_caller_and_i2c_buffers(self):
+        instrument = self.hw.Instrument()
+        self.fake.registers[0x44].update({1: 400, 2: 2240})
+        self.fake.registers[0x41].update({1: 0xffff, 2: 1})
+        result = [0, 0, 0, 0]
+        caller_id, i2c_id = id(result), id(instrument._i2c_bytes)
+        self.assertIsNone(instrument.read_codes_into(result))
+        self.assertEqual(result, [2240, 400, 1, -1])
+        self.assertEqual(id(result), caller_id)
+        self.assertEqual(id(instrument._i2c_bytes), i2c_id)
+        self.drive(instrument)
+        self.fake.registers[0x41][1] = 0x8000
+        with self.assertRaises(OverrangeError) as error:
+            instrument.read_codes_into(result)
+        self.assertEqual(error.exception.channel, "gate")
+        self.assertEqual(error.exception.sign, -1)
+        self.assert_outputs_zero()
+
+    def test_calibration_read_checks_ready_invalid_bus_and_mutability(self):
+        instrument = self.hw.Instrument()
+        self.drive(instrument)
+        instrument.begin_measurement(4)
+        with self.assertRaisesRegex(self.hw.HardwareError, "not ready"):
+            instrument.read_codes_into([0, 0, 0, 0])
+        self.assert_outputs_zero()
+        self.drive(instrument)
+        self.fake.registers[0x44][2] = 0x8000
+        with self.assertRaisesRegex(self.hw.HardwareError, "bus ADC"):
+            instrument.read_codes_into([0, 0, 0, 0])
+        self.assert_outputs_zero()
+        self.fake.registers[0x44][2] = 0
+        self.drive(instrument)
+        with self.assertRaises(self.hw.HardwareError):
+            instrument.read_codes_into((0, 0, 0, 0))
+        self.assert_outputs_zero()
+
     def test_trigger_counts_clear_stale_flags_and_latch_each_chip_independently(self):
         instrument = self.hw.Instrument()
         for index, count in enumerate(self.hw.model.INA_AVERAGE_COUNTS):
@@ -173,25 +212,23 @@ class InstrumentTests(unittest.TestCase):
             self.assert_outputs_zero()
             self.assertFalse(instrument._measurement_pending)
 
-    def test_latched_current_alert_stops_gate_first_without_inventing_peak(self):
+    def test_initialization_disables_stale_comparators_and_never_programs_a_threshold(self):
+        for address in (0x44, 0x41):
+            self.fake.registers[address][6] = 0xFC13
+            self.fake.registers[address][7] = 1578
         instrument = self.hw.Instrument()
-        for role, address in (("drain", 0x44), ("gate", 0x41)):
-            for during_average in (False, True):
-                self.drive(instrument)
-                if during_average:
-                    instrument.begin_measurement(1024)
-                self.fake.registers[address][6] |= self.hw.ALERT_FLAG
-                self.fake.events.clear()
-                with self.assertRaises(OverrangeError) as caught:
-                    instrument.poll_measurement() if during_average else instrument.begin_measurement(4)
-                error = caught.exception
-                self.assertEqual((error.channel, error.kind, error.sign), (role, "current_limit_alert", 1))
-                self.assertIsNone(error.measured_value)
-                self.assertIsNone(error.raw_code)
-                self.assertEqual([event for event in self.fake.events if event[0] == "duty"],
-                                 [("duty", 21, 0), ("duty", 20, 0)])
-                self.assertFalse(any(event[0] == "write" for event in self.fake.events))
-                self.assert_outputs_zero()
+        for address in (0x44, 0x41):
+            self.assertEqual(self.fake.registers[address][6], 0)
+            self.assertEqual(self.fake.registers[address][7], 1578)
+        self.assertFalse(any(event[0] == "write" and event[2] == 7
+                             for event in self.fake.events))
+        self.drive(instrument)
+        # An old read-cleared status indication is not a fresh ADC endpoint.
+        for address in (0x44, 0x41):
+            self.fake.registers[address][6] |= 0x10
+        instrument.poll_alerts()
+        self.assertNotEqual(self.fake.pwms[20].duty, 0)
+        self.assertNotEqual(self.fake.pwms[21].duty, 0)
 
     def test_monitoring_resumes_before_new_pwm_and_zero_cancels_pending(self):
         instrument = self.hw.Instrument()
@@ -291,8 +328,7 @@ class InstrumentTests(unittest.TestCase):
         for role, address in (("drain", 0x44), ("gate", 0x41)):
             for register, code, kind, sign, bound in (
                     (1, 0x7FFF, "shunt_saturation", 1, 32767 * self.hw.SHUNT_LSB_V),
-                    (1, 0x8000, "shunt_saturation", -1, 32768 * self.hw.SHUNT_LSB_V),
-                    (2, 0x7FFF, "bus_saturation", 1, 32767 * self.hw.BUS_LSB_V)):
+                    (1, 0x8000, "shunt_saturation", -1, 32768 * self.hw.SHUNT_LSB_V)):
                 with self.subTest(role=role, register=register, code=code):
                     for sensor in (0x44, 0x41):
                         self.fake.registers[sensor].update({1: 0, 2: 0})
@@ -309,9 +345,9 @@ class InstrumentTests(unittest.TestCase):
                         "measured_value": None})
                     self.assert_outputs_zero()
 
-    def test_invalid_bus_codes_and_operating_voltage_remain_hard_errors(self):
+    def test_invalid_bus_reserved_bits_remain_hard_errors(self):
         instrument = self.hw.Instrument()
-        for register, code in ((2, 0x8000), (2, 0xFFFF), (2, 28801)):
+        for register, code in ((2, 0x8000), (2, 0xFFFF)):
             with self.subTest(register=register, code=code):
                 self.fake.registers[0x41].update({1: 0, 2: 0})
                 self.fake.registers[0x41][register] = code
@@ -319,6 +355,73 @@ class InstrumentTests(unittest.TestCase):
                 with self.assertRaises(self.hw.HardwareError):
                     instrument.read_pair()
                 self.assert_outputs_zero()
+
+    def test_near_full_scale_shunt_codes_are_valid_both_channels_and_signs(self):
+        instrument = self.hw.Instrument()
+        for role, address, resistance in (("drain", 0x44, 0.789), ("gate", 0x41, 638)):
+            for code, signed in ((0x7FFE, 32766), (0x8001, -32767)):
+                for sensor in (0x44, 0x41):
+                    self.fake.registers[sensor].update({1: 0, 2: 2640})
+                self.fake.registers[address][1] = code
+                self.drive(instrument)
+                pair = instrument.read_pair()
+                self.assertEqual(pair[role]["shunt_code"], signed)
+                self.assertAlmostEqual(pair[role]["shunt_v"], signed * 2.5e-6)
+                if role == "drain":
+                    self.assertGreater(abs(pair[role]["shunt_v"] / resistance), 0.1)
+                self.assertNotEqual(self.fake.pwms[20].duty, 0)
+                self.assertNotEqual(self.fake.pwms[21].duty, 0)
+
+    def test_engine_keeps_near_rail_point_then_stops_before_endpoint_point(self):
+        for role, address, resistance in (("drain", 0x44, 0.789), ("gate", 0x41, 638)):
+            for near, endpoint, sign in ((0x7FFE, 0x7FFF, 1), (0x8001, 0x8000, -1)):
+                with self.subTest(role=role, sign=sign):
+                    self.setUp()
+                    instrument = self.hw.Instrument()
+                    for sensor in (0x44, 0x41):
+                        self.fake.registers[sensor].update({1: 0, 2: 2640})
+                    self.fake.registers[address][1] = near
+                    config = dict(self.hw.model.DEFAULT_SETTINGS,
+                                  drain_start_uv=100000, drain_stop_uv=300000, drain_step_uv=100000,
+                                  gate_start_uv=0, gate_stop_uv=0, ina_average_count=1)
+                    scanner = Engine(instrument)
+                    scanner.start_scan(config)
+                    rows = []
+                    for now in range(1000):
+                        if scanner._measurement_waiting:
+                            for sensor in (0x44, 0x41):
+                                self.fake.registers[sensor][6] |= self.hw.READY_FLAG
+                        for event, value in scanner.tick(now):
+                            if event == "point":
+                                rows.append(value)
+                                self.fake.registers[address][1] = endpoint
+                        if scanner.state != "scanning":
+                            break
+                    self.assertEqual(scanner.state, "partial", scanner.error)
+                    self.assertEqual(len(rows), 1)
+                    measured = rows[0]["id_a" if role == "drain" else "ig_a"]
+                    signed = near if near < 0x8000 else near - 65536
+                    self.assertAlmostEqual(measured, signed * 2.5e-6 / resistance)
+                    self.assertEqual(scanner.fault["index"], 1)
+                    self.assertEqual(scanner.fault["kind"], "shunt_saturation")
+                    self.assertEqual(scanner.fault["raw_code"], endpoint)
+                    self.assertIs(scanner.latest, rows[0])
+                    self.assertTrue(scanner.shutdown_succeeded)
+                    self.assertEqual([event for event in self.fake.events if event[0] == "duty"][-2:],
+                                     [("duty", 21, 0), ("duty", 20, 0)])
+                    self.assert_outputs_zero()
+
+    def test_bus_values_outside_requested_operating_envelope_are_not_quality_faults(self):
+        instrument = self.hw.Instrument()
+        for role, address in (("drain", 0x44), ("gate", 0x41)):
+            for code in (28801, 32766, 0x7FFF):
+                self.fake.registers[address][2] = code
+                self.drive(instrument)
+                pair = instrument.read_pair()
+                self.assertEqual(pair[role]["bus_code"], code)
+                self.assertAlmostEqual(pair[role]["bus_v"], code * 0.00125)
+                self.assertNotEqual(self.fake.pwms[20].duty, 0)
+                self.assertNotEqual(self.fake.pwms[21].duty, 0)
 
     def test_invalid_bus_data_is_not_hidden_by_simultaneous_shunt_saturation(self):
         instrument = self.hw.Instrument()

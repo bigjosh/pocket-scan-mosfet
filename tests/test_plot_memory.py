@@ -1,55 +1,41 @@
-"""Early-allocated plot storage is reused without reducing point capacity."""
-
+"""Plot coordinates share the fixed 64 KiB scan buffer without copies."""
 import unittest
-
 from firmware import model
-from firmware.ui import App, PlotValues
+from firmware.ram_scan import PackedScanBuffer
+from firmware.ui import App, PackedPlotView
 from test_ui import FakeDisplay, FakeInputs
-
 
 class IdleEngine:
     state = "idle"
 
-
 class PlotMemoryTests(unittest.TestCase):
-    def test_app_wraps_exact_boot_buffers_without_copying(self):
-        buffers = (bytearray(32 * 1024), bytearray(8 * 1024), bytearray(4 * 1024))
-        app = App(FakeDisplay(), FakeInputs(), IdleEngine(), plot_buffers=buffers)
-        self.assertIs(buffers[0], app.rows._data)
-        self.assertIs(buffers[1], app.curves._data)
-        self.assertIs(buffers[2], app.limit_flags._data)
-        self.assertEqual(model.MAX_POINTS * 2, app.rows.capacity)
-        self.assertEqual(model.MAX_POINTS, app.curves.capacity)
-        self.assertEqual(model.MAX_POINTS, app.limit_flags.capacity)
+    def test_full_capacity_views_share_exact_boot_buffer(self):
+        raw = bytearray(64 * 1024)
+        buffer = PackedScanBuffer(raw)
+        app = App(FakeDisplay(), FakeInputs(), IdleEngine(), scan_buffer=buffer, restart=lambda: None)
+        app._ram_drain_count = 64
+        self.assertIs(buffer._data, raw)
+        self.assertIsInstance(app.rows, PackedPlotView)
+        self.assertFalse(hasattr(app, "limit_flags"))
         for index in range(model.MAX_POINTS):
-            app.rows.append(float(index))
-            app.rows.append(float(index) / 2)
-            app.curves.append(index)
-            app.limit_flags.append(index & 7)
-        self.assertEqual(float(model.MAX_POINTS - 1) / 2, app.rows[-1])
-        self.assertEqual(model.MAX_POINTS - 1, app.curves[-1])
-        self.assertEqual(7, app.limit_flags[-1])
+            buffer.append({"vds": index / 1000, "vgs": 1., "id_a": index * 1e-6, "ig_a": 0.})
+        self.assertEqual(len(raw), 65536)
+        self.assertEqual(len(app.rows), 8192)
+        self.assertEqual(len(app.curves), 4096)
+        self.assertAlmostEqual(app.rows[-1], 4095e-6, places=8)
+        self.assertEqual(app.curves[-1], 63)
+        with self.assertRaises(ValueError):
+            buffer.append({"vds": 1., "vgs": 1., "id_a": 0., "ig_a": 0.})
+        buffer.clear()
         app.clear_results()
-        self.assertEqual(0, len(app.rows))
-        self.assertIs(buffers[0], app.rows._data)
+        self.assertEqual(len(app.rows), 0)
+        self.assertIs(buffer._data, raw)
 
-    def test_external_buffer_rejects_wrong_size_and_readonly_storage(self):
-        for value in (bytearray(7), bytearray(9), bytes(8), memoryview(bytearray(8))):
-            with self.subTest(value=type(value).__name__), self.assertRaises(ValueError):
-                PlotValues("<f", 2, value)
+    def test_app_requires_shared_buffer_and_restart_callback(self):
         with self.assertRaises(ValueError):
-            App(FakeDisplay(), FakeInputs(), IdleEngine(), plot_buffers=(bytearray(1),))
-
-    def test_buffer_capacity_bound_remains_enforced(self):
-        raw = bytearray(8)
-        values = PlotValues("<f", 2, raw)
-        values.append(1.25)
-        values.append(2.5)
+            App(FakeDisplay(), FakeInputs(), IdleEngine())
         with self.assertRaises(ValueError):
-            values.append(3.75)
-        self.assertEqual([1.25, 2.5], [values[0], values[1]])
-        self.assertIs(raw, values._data)
-
+            App(FakeDisplay(), FakeInputs(), IdleEngine(), scan_buffer=PackedScanBuffer())
 
 if __name__ == "__main__":
     unittest.main()

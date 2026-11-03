@@ -9,7 +9,7 @@ from unittest.mock import patch
 from firmware import scan_timing
 from firmware.engine import Engine
 from test_hardware import MachineFake
-from test_model_engine import FakeInstrument, calibration, run_engine, settings
+from test_model_engine import FakeInstrument, run_engine, settings
 
 
 class TimingRecorder:
@@ -34,16 +34,16 @@ class TimingRecorder:
 
 
 class EngineTimingTests(unittest.TestCase):
-    def test_first_gate_point_has_three_blocks_later_point_one_and_data_is_unchanged(self):
+    def test_every_point_has_one_block_and_timed_data_is_unchanged(self):
         config = settings(drain_stop_v=2, drain_step_v=1, gate_stop_v=2, gate_step_v=1)
         plain_hardware = FakeInstrument()
         plain = Engine(plain_hardware)
-        plain.start_scan(config, calibration())
+        plain.start_scan(config)
         expected_events = run_engine(plain, plain_hardware)
 
         timing, hardware = TimingRecorder(), FakeInstrument()
         engine = Engine(hardware, timing=timing)
-        engine.start_scan(config, calibration())
+        engine.start_scan(config)
         events, phase_groups, first_phase, tick_count = [], [], 0, 0
         for now in range(10000):
             hardware.now = now
@@ -56,13 +56,9 @@ class EngineTimingTests(unittest.TestCase):
             if engine.state != "scanning":
                 break
         self.assertEqual(engine.state, "complete")
-        first = [scan_timing.DRIVE, scan_timing.PARK_SETTLE, scan_timing.CONVERT,
-                 scan_timing.PROCESS, scan_timing.GATE_SETTLE, scan_timing.CONVERT,
-                 scan_timing.PROCESS, scan_timing.DRAIN_SETTLE, scan_timing.CONVERT,
-                 scan_timing.PROCESS]
-        later = [scan_timing.DRIVE, scan_timing.DRAIN_SETTLE,
-                 scan_timing.CONVERT, scan_timing.PROCESS]
-        self.assertEqual(phase_groups, [first, later, first, later])
+        phases = [scan_timing.DRIVE, scan_timing.DRAIN_SETTLE,
+                  scan_timing.CONVERT, scan_timing.PROCESS]
+        self.assertEqual(phase_groups, [phases] * 4)
         self.assertEqual(events, expected_events)
         self.assertEqual(hardware.timed_commands, plain_hardware.timed_commands)
         self.assertEqual(hardware.triggers, plain_hardware.triggers)
@@ -70,26 +66,10 @@ class EngineTimingTests(unittest.TestCase):
         self.assertEqual(timing.added, [(scan_timing.ENGINE, 0)] * tick_count)
         self.assertTrue(timing.active)  # UI still owns painting and finishing the profile.
 
-    def test_parking_correction_returns_to_the_matching_settling_phase(self):
-        for phase, code in (("park_drain", scan_timing.PARK_SETTLE),
-                            ("settle_gate", scan_timing.GATE_SETTLE)):
-            with self.subTest(phase=phase):
-                timing, hardware = TimingRecorder(), FakeInstrument()
-                engine = Engine(hardware, timing=timing)
-                engine.start_scan(settings(source_voltage_v=1), calibration())
-                engine.tick(0)
-                engine._phase = phase
-                timing.phases.clear()
-                self.assertFalse(engine._check_settled(
-                    {"drain": {"terminal_v": 0.95}}, {"drain": 1.0}, ("drain",)))
-                self.assertEqual(timing.phases, [code])
-                self.assertEqual(engine._deadline, engine._clock + engine.settings["settle_ms"])
-                self.assertGreater(hardware.duties["drain"], 1 / 28.05)
-
     def test_fault_tick_is_timed_and_still_stops_outputs_without_a_point(self):
         timing, hardware = TimingRecorder(), FakeInstrument()
         engine = Engine(hardware, timing=timing)
-        engine.start_scan(settings(), calibration())
+        engine.start_scan(settings())
         engine.tick(0)
         hardware.read_error = OSError("synthetic read failure")
         events = []
@@ -105,10 +85,10 @@ class EngineTimingTests(unittest.TestCase):
         self.assertEqual(len(timing.added), now + 1)
         self.assertEqual(timing.added[-1], (scan_timing.ENGINE, 0))
 
-    def test_inactive_timer_does_not_record_calibration_work(self):
+    def test_inactive_timer_does_not_record_scan_work(self):
         timing, hardware = TimingRecorder(active=False), FakeInstrument()
         engine = Engine(hardware, timing=timing)
-        engine.start_calibration(settings(driver_supply_v=2.1))
+        engine.start_scan(settings(drain_stop_v=2, drain_step_v=1))
         for now in range(500):
             hardware.now = now
             engine.tick(now)

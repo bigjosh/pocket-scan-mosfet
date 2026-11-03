@@ -6,7 +6,7 @@ from firmware.engine import Engine, OverrangeError
 from firmware.ram_scan import PackedScanBuffer
 from firmware.ui import App
 from test_ram_ui import RamCloud, RamWifi
-from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore, fixture_calibration
+from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore
 
 
 class Clock:
@@ -92,7 +92,7 @@ class ScanTimingUITests(unittest.TestCase):
             def read_pair(self):
                 charge("engine", 19)
                 pair = super().read_pair()
-                # Trigger one real axis rescale without violating current limits.
+                # Trigger one real axis rescale with a small raw shunt reading.
                 extra_shunt = 5e-6 * model.DRAIN_SHUNT_OHM
                 pair["drain"]["shunt_v"] += extra_shunt
                 pair["drain"]["bus_v"] += extra_shunt
@@ -124,7 +124,7 @@ class ScanTimingUITests(unittest.TestCase):
                              gate_stop_uv=1000000, gate_step_uv=1000000,
                              ina_average_count=4)
         self.app = App(self.display, self.inputs, self.engine, self.settings,
-                       fixture_calibration(), MemoryStore(), wifi=self.wifi,
+                       store=MemoryStore(), wifi=self.wifi,
                        cloud=self.cloud, scan_buffer=self.buffer, timing=self.timing,
                        restart=lambda: self.restarts.append(True),
                        error_logger=lambda context, error: self.logs.append((context, str(error))))
@@ -273,24 +273,21 @@ class ScanTimingUITests(unittest.TestCase):
         self.assertFalse(self.timing.active)
         self.assertEqual(self.logs, [])
 
-    def test_new_gate_curve_reports_its_own_parking_and_gate_settling_cost(self):
+    def test_every_gate_curve_uses_one_shared_settle_and_no_verification_passes(self):
         self.app.settings["gate_stop_uv"] = 2000000
         self.complete()
         self.assertEqual([r["values"]["index"] for r in self.reports], list(range(6)))
         self.assertEqual([r["values"]["curve"] for r in self.reports], [0, 0, 0, 1, 1, 1])
         for index, report in enumerate(self.reports):
             for counter in ("park_settle", "gate_settle"):
-                if index in (0, 3):
-                    self.assertGreater(report["values"][counter], 0)
-                else:
-                    self.assertEqual(report["values"][counter], 0)
+                self.assertEqual(report["values"][counter], 0)
+            self.assertGreater(report["values"]["drain_settle"], 0)
 
     def test_overrange_keeps_prior_report_without_inventing_completed_fault_point(self):
         self.start()
         self.until(lambda: len(self.reports) == 1)
-        self.instrument.error = OverrangeError("drain", "current_limit", None, 1,
-                                              model.DRAIN_CURRENT_LIMIT_A, "A",
-                                              model.DRAIN_CURRENT_LIMIT_A * 2)
+        self.instrument.error = OverrangeError("drain", "shunt_saturation", 0x8000,
+                                              -1, 0.08192, "V")
         self.until(lambda: self.app.screen == "upload")
         self.assertEqual(len(self.buffer), 1)
         self.assertEqual(len(self.reports), 1)

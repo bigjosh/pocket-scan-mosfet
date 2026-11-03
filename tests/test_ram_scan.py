@@ -1,4 +1,4 @@
-"""Fixed-memory measured scan records and exact gate target classification."""
+"""Fixed-memory measured scan records without result classification."""
 
 import math
 import struct
@@ -17,18 +17,18 @@ def point(**changes):
 
 
 class PackedScanBufferTests(unittest.TestCase):
-    def test_record_layout_and_boot_buffer_are_exactly_17_bytes_per_point(self):
-        self.assertEqual(17, struct.calcsize(ram_scan.RECORD_FORMAT))
-        self.assertEqual(17, ram_scan.RECORD_BYTES)
-        self.assertEqual(69632, ram_scan.BUFFER_BYTES)
+    def test_record_layout_and_boot_buffer_are_exactly_16_bytes_per_point(self):
+        self.assertEqual(16, struct.calcsize(ram_scan.RECORD_FORMAT))
+        self.assertEqual(16, ram_scan.RECORD_BYTES)
+        self.assertEqual(65536, ram_scan.BUFFER_BYTES)
         backing = bytearray(ram_scan.BUFFER_BYTES)
         values = ram_scan.PackedScanBuffer(backing)
         self.assertIs(backing, values._data)
         row = point(drain_voltage_limited=True, gate_voltage_limited=True, vgs=2.3)
         values.append(row)
-        expected = struct.pack("<4fB", row["vds"], row["vgs"], row["id_a"], row["ig_a"], 7)
-        self.assertEqual(expected, backing[:17])
-        self.assertEqual(struct.unpack("<4fB", expected), values.get(0))
+        expected = struct.pack("<4f", row["vds"], row["vgs"], row["id_a"], row["ig_a"])
+        self.assertEqual(expected, backing[:16])
+        self.assertEqual(struct.unpack("<4f", expected), values.get(0))
         self.assertEqual(values.get(0), values.get_tuple(0))
         self.assertEqual(values.get(0), values[0])
 
@@ -49,12 +49,12 @@ class PackedScanBufferTests(unittest.TestCase):
             self.assertEqual(4096, values.count)
             self.assertEqual(before, backing)
             self.assertIs(backing, values._data)
-            self.assertEqual(69632, len(backing))
+            self.assertEqual(65536, len(backing))
             self.assertEqual(0.0, values[0][0])
             self.assertAlmostEqual(4.095, values[-1][0], places=6)
             values.clear()
             self.assertEqual(0, len(values))
-            self.assertEqual(before, backing)  # clear does not zero/copy 69 KiB.
+            self.assertEqual(before, backing)  # clear does not zero/copy 64 KiB.
             with self.assertRaises(IndexError):
                 values.get(0)
             row["vds"] = -0.25
@@ -66,7 +66,7 @@ class PackedScanBufferTests(unittest.TestCase):
         for capacity in (0, -1, model.MAX_POINTS + 1, True, 1.0, "1"):
             with self.subTest(capacity=capacity), self.assertRaises(ValueError):
                 ram_scan.PackedScanBuffer(capacity=capacity)
-        for backing in (bytearray(16), bytearray(18), bytes(17), memoryview(bytearray(17))):
+        for backing in (bytearray(15), bytearray(17), bytes(16), memoryview(bytearray(16))):
             with self.subTest(backing=type(backing).__name__), self.assertRaises(ValueError):
                 ram_scan.PackedScanBuffer(backing, capacity=1)
 
@@ -87,7 +87,7 @@ class PackedScanBufferTests(unittest.TestCase):
                 values.get(index)
 
     def test_invalid_values_reject_before_count_or_storage_changes(self):
-        for field in ("vds", "vgs", "id_a", "ig_a", "requested_vgs"):
+        for field in ("vds", "vgs", "id_a", "ig_a"):
             for invalid in (float("nan"), float("inf"), -float("inf"), 3.5e38, -3.5e38,
                             10 ** 1000, True, None, "1.0"):
                 with self.subTest(field=field, invalid_type=type(invalid).__name__):
@@ -99,59 +99,23 @@ class PackedScanBufferTests(unittest.TestCase):
                     self.assertEqual(1, values.count)
                     self.assertEqual(before, values._data)
 
-    def test_missing_values_and_invalid_flag_types_do_not_publish_a_point(self):
-        for field in ("vds", "vgs", "id_a", "ig_a", "requested_vgs"):
+    def test_missing_values_do_not_publish_a_point(self):
+        for field in ("vds", "vgs", "id_a", "ig_a"):
             values = ram_scan.PackedScanBuffer(capacity=1)
             row = point()
             del row[field]
             with self.assertRaises(ValueError):
                 values.append(row)
             self.assertEqual(0, values.count)
-        for field in ("drain_voltage_limited", "gate_voltage_limited"):
-            for invalid in (0, 1, None, "true", [], float("nan")):
-                values = ram_scan.PackedScanBuffer(capacity=1)
-                with self.assertRaises(ValueError):
-                    values.append(point(**{field: invalid}))
-                self.assertEqual(0, values.count)
         for row in (None, [], "point", 1):
             with self.assertRaises(ValueError):
                 ram_scan.PackedScanBuffer(capacity=1).append(row)
 
-    def test_gate_flag_preserves_inclusive_float_boundaries(self):
-        for target in (0.0, 0.1, 1.0, -1.0, 18.8):
-            lower = target - model.GATE_PLOT_TOLERANCE_V
-            upper = target + model.GATE_PLOT_TOLERANCE_V
-            for measured, expected in ((lower, 0), (upper, 0), (target, 0),
-                                       (math.nextafter(lower, -math.inf), 4),
-                                       (math.nextafter(upper, math.inf), 4)):
-                with self.subTest(target=target, measured=measured):
-                    values = ram_scan.PackedScanBuffer(capacity=1)
-                    values.append(point(vgs=measured, requested_vgs=target))
-                    self.assertEqual(expected, values[0][4])
-
-    def test_gate_plot_band_accepts_50_and_100_mv_but_rejects_one_uv_beyond(self):
-        for target in (-1.0, 0.0, 1.0, 2.125, 18.8):
-            for offset_uv, expected in ((-100001, 4), (-100000, 0), (-50000, 0),
-                                        (50000, 0), (100000, 0), (100001, 4)):
-                with self.subTest(target=target, offset_uv=offset_uv):
-                    values = ram_scan.PackedScanBuffer(capacity=1)
-                    values.append(point(vgs=target + offset_uv / 1000000,
-                                        requested_vgs=target))
-                    self.assertEqual(expected, values[0][4])
-
-    def test_limit_flags_are_independent_and_optional_flags_default_false(self):
-        for drain in (False, True):
-            for gate in (False, True):
-                for off_target in (False, True):
-                    values = ram_scan.PackedScanBuffer(capacity=1)
-                    values.append(point(drain_voltage_limited=drain, gate_voltage_limited=gate,
-                                        vgs=2.3 if off_target else 2.125))
-                    self.assertEqual(int(drain) | (int(gate) << 1) | (int(off_target) << 2), values[0][4])
-        row = point()
-        del row["drain_voltage_limited"], row["gate_voltage_limited"]
+    def test_records_keep_measurements_without_target_or_magnitude_quality_filters(self):
         values = ram_scan.PackedScanBuffer(capacity=1)
+        row = {"vds": 37.0, "vgs": -39.0, "id_a": 2.0, "ig_a": -3.0}
         values.append(row)
-        self.assertEqual(0, values[0][4])
+        self.assertEqual((37.0, -39.0, 2.0, -3.0), values[0])
 
     def test_float32_currents_retain_submicroamp_resolution_and_input_is_not_retained(self):
         values = ram_scan.PackedScanBuffer(capacity=3)

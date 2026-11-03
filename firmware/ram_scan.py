@@ -1,4 +1,4 @@
-"""Fixed RAM-only scan records: measured VDS, VGS, ID, IG and plot flags.
+"""Fixed RAM-only scan records: measured VDS, VGS, ID and IG.
 
 Production supplies the boot-reserved bytearray. Settings retained alongside
 the scan define its requested grid; this buffer contains measured values only.
@@ -14,12 +14,9 @@ except ImportError:
     import model
 
 
-RECORD_FORMAT = "<4fB"
-RECORD_BYTES = 17
+RECORD_FORMAT = "<4f"
+RECORD_BYTES = 16
 BUFFER_BYTES = model.MAX_POINTS * RECORD_BYTES
-DRAIN_LIMITED = 1
-GATE_LIMITED = 2
-GATE_OFF_TARGET = 4
 _FLOAT32_MAX = 3.4028234663852886e38
 
 
@@ -38,9 +35,9 @@ def _float32_value(value):
 
 
 class PackedScanBuffer:
-    """Reusable 17-byte records without retaining input dictionaries.
+    """Reusable 16-byte records without retaining input dictionaries.
 
-    get()/get_tuple()/indexing return (vds, vgs, id_a, ig_a, flags).
+    get()/get_tuple()/indexing return (vds, vgs, id_a, ig_a).
     clear() changes only the visible count; a reboot expunges the backing RAM.
     """
     def __init__(self, buffer=None, capacity=model.MAX_POINTS):
@@ -94,22 +91,11 @@ class PackedScanBuffer:
             vgs = _float32_value(row["vgs"])
             id_a = _float32_value(row["id_a"])
             ig_a = _float32_value(row["ig_a"])
-            requested_vgs = _float32_value(row["requested_vgs"])
         except KeyError:
-            raise ValueError("Scan point is missing a measured value or gate target")
-        drain_limited = row.get("drain_voltage_limited", False)
-        gate_limited = row.get("gate_voltage_limited", False)
-        if not isinstance(drain_limited, bool) or not isinstance(gate_limited, bool):
-            raise ValueError("Scan voltage-limit flags must be boolean")
-        flags = (DRAIN_LIMITED if drain_limited else 0) | (GATE_LIMITED if gate_limited else 0)
-        # Match the existing display's inclusive endpoints exactly. Subtracting
-        # actual-target first can classify a floating-point boundary differently.
-        if not (requested_vgs - model.GATE_PLOT_TOLERANCE_V <= vgs <=
-                requested_vgs + model.GATE_PLOT_TOLERANCE_V):
-            flags |= GATE_OFF_TARGET
+            raise ValueError("Scan point is missing a measured value")
         # Validate before touching storage; count publishes a complete record.
         struct.pack_into(RECORD_FORMAT, self._data, self.count * RECORD_BYTES,
-                         vds, vgs, id_a, ig_a, flags)
+                         vds, vgs, id_a, ig_a)
         self.count += 1
         self._revision += 1
 

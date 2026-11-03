@@ -5,7 +5,7 @@ import unittest
 from firmware import model
 from firmware.engine import Engine
 from firmware.ui import App, WIFI_KEYS
-from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore, fixture_calibration, finish_scan_preparation
+from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore, finish_scan_preparation
 
 
 def network(name, saved=False, rssi=-48, password=True, supported=True):
@@ -103,8 +103,13 @@ class WifiUITests(unittest.TestCase):
         settings.update(drain_start_uv=0, drain_stop_uv=1000000, drain_step_uv=1000000,
                         gate_start_uv=1000000, gate_stop_uv=1000000, gate_step_uv=1000000,
                         ina_average_count=4)
+        from firmware.ram_scan import PackedScanBuffer
+        from test_ram_ui import RamCloud
+        self.buffer, self.restarts = PackedScanBuffer(capacity=32), []
+        self.cloud = RamCloud(self.buffer)
         self.app = App(self.display, self.inputs, self.engine, settings,
-                       fixture_calibration(), self.store, wifi=self.wifi,
+                       store=self.store, wifi=self.wifi, cloud=self.cloud,
+                       scan_buffer=self.buffer, restart=lambda: self.restarts.append(True),
                        error_logger=lambda context, error: self.logs.append((context, str(error))))
         self.now = 0
         self.app.render()
@@ -145,7 +150,7 @@ class WifiUITests(unittest.TestCase):
     def finish(self):
         for _ in range(2000):
             self.tick()
-            if self.engine.state not in ("scanning", "calibrating"):
+            if self.engine.state != "scanning":
                 return
         self.fail("Acquisition did not finish")
 
@@ -269,7 +274,8 @@ class WifiUITests(unittest.TestCase):
         self.press("left")   # discard Settings draft
         self.assertEqual(self.app.settings["ina_average_count"], 4)
         self.assertEqual(self.store.writes, 0)
-        self.assertEqual(self.wifi.state, "connected")
+        self.assertEqual(self.wifi.state, "paused")
+        self.assertEqual(self.restarts, [True])
 
     def test_connect_cancel_keeps_radio_off_and_does_not_save(self):
         self.password()
@@ -359,55 +365,20 @@ class WifiUITests(unittest.TestCase):
         self.assertEqual(self.wifi.calls, [("pause",)])
         self.wifi.resume_check = lambda: self.assertEqual(self.instrument.duties, {"drain": 0.0, "gate": 0.0})
         self.finish()
-        self.assertEqual(self.wifi.calls.count(("resume",)), 1)
-        self.tick()
-        self.assertEqual(self.wifi.calls.count(("resume",)), 1)
+        self.assertNotIn(("resume",), self.wifi.calls)
+        self.assertEqual(self.app.screen, "upload")
 
     def test_pause_failure_never_starts_acquisition_and_is_sanitized(self):
         self.wifi.pause_error = OSError("private-radio-data")
         self.press("right")
         self.assertEqual(self.engine.state, "idle")
         self.assertEqual(self.instrument.commands, [])
-        self.assertEqual(self.app.notice, "Wi-Fi could not be disabled")
+        self.assertIn("Wi-Fi could not be disabled", self.app.notice)
         self.assertNotIn("private-radio-data", repr(self.logs))
         self.assertNotIn(("resume",), self.wifi.calls)
 
-    def test_preflight_failure_resumes_once_without_drive(self):
-        self.app.calibration = None
-        self.press("right")
-        self.assertEqual(self.wifi.calls[:2], [("pause",), ("resume",)])
-        self.assertEqual(self.instrument.commands, [])
-        self.assertEqual(self.engine.state, "idle")
 
-    def test_cancel_error_and_calibration_terminal_events_resume_after_zero(self):
-        for mode in ("cancel", "error", "calibration"):
-            with self.subTest(mode=mode):
-                self.setUp()
-                self.wifi.resume_check = lambda: self.assertEqual(self.instrument.duties, {"drain": 0.0, "gate": 0.0})
-                if mode == "calibration":
-                    self.press("left")
-                    self.touch("advanced")
-                    self.touch("calibrate")
-                self.press("right")
-                if mode == "cancel":
-                    self.press("left")
-                elif mode == "error":
-                    self.instrument.error = OSError("sensor offline")
-                self.finish()
-                self.assertEqual(self.wifi.calls.count(("pause",)), 1)
-                self.assertEqual(self.wifi.calls.count(("resume",)), 1)
 
-    def test_resume_failure_does_not_hide_measurement_result_or_leak(self):
-        self.wifi.resume_error = OSError("secret-in-driver")
-        self.press("right")
-        self.finish()
-        self.assertEqual(self.app.screen, "complete")
-        self.assertGreater(len(self.app.curves), 0)
-        self.assertEqual(self.app._wifi_error, "Wi-Fi could not be resumed")
-        self.assertNotIn("secret-in-driver", repr(self.logs))
-        self.press("left")
-        self.hub()
-        self.assertIn("Wi-Fi could not be resumed", self.display.labels)
 
     def test_stale_setup_actions_and_pending_search_cannot_run_during_acquisition(self):
         self.press("right")
@@ -420,45 +391,7 @@ class WifiUITests(unittest.TestCase):
         self.assertNotIn(("scan",), self.wifi.calls)
         self.assertEqual(self.wifi.calls, [("pause",)])
 
-    def test_cancelled_network_intent_stays_off_after_measurement(self):
-        self.wifi.want = True
-        self.wifi.cancel()
-        self.press("right")
-        self.finish()
-        self.assertEqual(self.wifi.state, "off")
 
-    def test_failed_zero_after_acquisition_error_keeps_wifi_paused(self):
-        self.press("right")
-        self.instrument.error = OSError("sensor offline")
-        def failed_zero():
-            raise OSError("zero command failed")
-        self.instrument.zero = failed_zero
-        self.finish()
-        self.assertEqual(self.engine.state, "error")
-        self.assertEqual(self.app.screen, "notice")
-        self.assertFalse(self.engine.shutdown_succeeded)
-        self.assertEqual(self.wifi.state, "paused")
-        self.assertNotIn(("resume",), self.wifi.calls)
-        # A later invalid scan must not turn the radio back on while the old
-        # shutdown fault still has no confirmed successful park/zero.
-        self.press("left")
-        self.app.calibration = None
-        self.press("right")
-        self.assertEqual(self.wifi.state, "paused")
-        self.assertNotIn(("resume",), self.wifi.calls)
-        self.press("left")
-        self.hub()
-        self.touch("wifi_scan")
-        self.assertEqual(self.app.screen, "notice")
-        self.assertIn("outputs could not be stopped", self.app.notice)
-        self.assertNotIn(("scan",), self.wifi.calls)
-        self.press("right")
-        self.touch("wifi_saved")
-        self.touch(("wifi_select", 0))
-        self.touch("wifi_use_saved")
-        self.assertEqual(self.app.screen, "notice")
-        self.assertFalse(any(call[0] == "connect" for call in self.wifi.calls))
-        self.assertEqual(self.wifi.state, "paused")
 
 
 if __name__ == "__main__":

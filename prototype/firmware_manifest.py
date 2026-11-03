@@ -6,7 +6,7 @@ import binascii
 
 result = {}
 for name in os.listdir():
-    if name.endswith((".py", ".mpy")) or name in ("settings.json", "calibration.bin", "google_roots.pem"):
+    if name.endswith((".py", ".mpy")) or name in ("settings.json", "google_roots.pem"):
         with open(name, "rb") as stream:
             hasher = hashlib.sha256()
             while True:

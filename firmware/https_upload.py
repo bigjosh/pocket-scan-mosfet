@@ -262,6 +262,11 @@ class UploadTransport:
         self._parser = Response()
         self.sock = self.stream = None
         self.state = "idle"
+        # Retain compact progress through redirects and socket cleanup. These
+        # fields are allocated before TLS work; headers never count as data.
+        self.upload_stage = 1  # connect=1, send=2, confirm=3
+        self.payload_sent = self.payload_total = 0
+        self._out_is_body = False
 
     def maintain_memory(self):
         """Restore the reserve on an idle call, after caller ACK/error frames exit.
@@ -284,8 +289,11 @@ class UploadTransport:
 
     def start(self, url, path, scan_id, sha256, point_count):
         self.close()
+        self.upload_stage = 1
+        self.payload_sent = self.payload_total = 0
+        self._out_is_body = False
         if not self.maintain_memory():
-            raise RuntimeError("Upload memory unavailable; scan remains saved")
+            raise RuntimeError("Upload memory unavailable; scan remains in RAM")
         if self._real_connector:
             # Import retained modules while the reserve still occupies its
             # contiguous region. No sockets or network operations occur here.
@@ -293,16 +301,13 @@ class UploadTransport:
             import ssl
         self.host, self.path = endpoint_parts(url)
         if self.source_factory is None:
-            try:
-                from .archive import UploadSource
-            except ImportError:
-                from archive import UploadSource
-            self.source_factory = UploadSource
+            raise ValueError("An upload source factory is required")
         self.stream = self.source_factory(path)
         self.size = self.stream.size
         if not 0 < self.size <= MAX_FILE_BYTES:
             self.close()
-            raise ValueError("Saved scan is outside the upload size limit")
+            raise ValueError("Scan is outside the upload size limit")
+        self.payload_total = self.size
         self.file_path = path
         self.method = "POST"
         self.redirects = 0
@@ -312,6 +317,7 @@ class UploadTransport:
         self.state = "clock"  # No network until a later step, after UI paints.
 
     def _prepare_request(self):
+        self._out_is_body = False
         headers = "%s %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nAccept: application/json\r\nAccept-Encoding: identity\r\n" % (
             self.method, self.path, self.host)
         if self.method == "POST":
@@ -361,7 +367,7 @@ class UploadTransport:
             # performs two collections so socket-finalizer context references
             # can also be reclaimed before JSON/archive allocations occur.
             if self._restore_after_transfer and not self._reserve_memory():
-                raise RuntimeError("Upload memory unavailable; scan remains saved")
+                raise RuntimeError("Upload memory unavailable; scan remains in RAM")
             if not self._restore_after_transfer:
                 # A one-scan boot resets after success or explicit discard.
                 # No second handshake needs a contiguous reserve in this VM.
@@ -379,9 +385,11 @@ class UploadTransport:
         if self.state == "connect":
             if self._memory is not None and not self._memory_released:
                 if not self._memory.release():
-                    raise RuntimeError("Upload memory unavailable; scan remains saved")
+                    raise RuntimeError("Upload memory unavailable; scan remains in RAM")
                 self._memory_released = True
             self.sock = self.connector(self.host, self.ca_file)
+            if self.method == "POST":
+                self.upload_stage = 2
             self.state = "write"
             return None
         if self.state == "write":
@@ -396,10 +404,13 @@ class UploadTransport:
                     return None
                 if count <= 0 or count > len(self.out):
                     raise RuntimeError("Upload write failed")
+                if self._out_is_body:
+                    self.payload_sent += count
                 self.out = self.out[count:]
                 return None
             if self.stream is not None:
                 self.out = self.stream.read(BLOCK_BYTES)
+                self._out_is_body = True
                 self.sent += len(self.out)
                 if self.out:
                     if self.sent > self.size:
@@ -409,6 +420,9 @@ class UploadTransport:
                 self.stream = None
                 if self.sent != self.size:
                     raise RuntimeError("Saved scan was truncated")
+                if self.payload_sent != self.payload_total:
+                    raise RuntimeError("Upload payload was not fully sent")
+                self.upload_stage = 3
             self.state = "read"
             return None
         try:

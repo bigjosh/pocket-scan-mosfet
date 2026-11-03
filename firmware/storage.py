@@ -1,4 +1,4 @@
-"""Atomic settings JSON and integrity-checked binary calibration storage."""
+"""Atomic JSON storage for settings, Wi-Fi and the cloud receiver."""
 
 import json
 import os
@@ -22,31 +22,8 @@ def load_json(path, default=None):
         raise
 
 
-def load_calibration(default=None, path="calibration.bin"):
-    """Binary only: a missing file returns default; any corrupt file fails.
-
-    Old calibration JSON is deliberately ignored, including when the binary
-    file is missing. Conversion is an explicit one-time maintenance action.
-    """
-    try:
-        stream = open(path, "rb")
-    except OSError as error:
-        code = getattr(error, "errno", None)
-        if code is None and error.args:
-            code = error.args[0]
-        if code == 2:
-            return default
-        raise
-    with stream:
-        try:
-            from .calibration_binary import load_calibration as load_binary
-        except ImportError:
-            from calibration_binary import load_calibration as load_binary
-        return load_binary(stream)
-
-
 class _JsonTransaction:
-    """Hold the actual file buffer before an acquisition grows its heap.
+    """Stage an atomic settings/configuration file replacement.
 
     One transaction at a time may own a path's fixed .tmp staging file.
     The committed path is untouched until a successful complete write/close.
@@ -125,30 +102,6 @@ def begin_json_atomic(path):
 
 def save_json_atomic(path, data):
     begin_json_atomic(path).commit(data)
-
-
-class _CalibrationTransaction(_JsonTransaction):
-    def __init__(self, path):
-        # First calibration may have no existing binary to load at boot.
-        # Import the codec before acquisition fragments memory, never at commit.
-        try:
-            from .calibration_binary import dump_calibration
-        except ImportError:
-            from calibration_binary import dump_calibration
-        self._dump_calibration = dump_calibration
-        super().__init__(path, "wb")
-
-    def _serialize(self, data):
-        self._dump_calibration(data, self._stream)
-
-
-def begin_calibration_atomic(path="calibration.bin"):
-    """Preopen a binary staging file; caller must commit(value) or abort()."""
-    return _CalibrationTransaction(path)
-
-
-def save_calibration_atomic(value, path="calibration.bin"):
-    begin_calibration_atomic(path).commit(value)
 
 
 def load_settings(path="settings.json", migrate=True):

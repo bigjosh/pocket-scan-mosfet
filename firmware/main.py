@@ -1,4 +1,4 @@
-"""Pocket scanner entry point. Boot never calibrates or starts a scan."""
+"""Pocket scanner entry point. Boot never drives or starts a scan."""
 
 from machine import Pin, soft_reset
 
@@ -8,16 +8,23 @@ Pin(20, Pin.OUT, value=0)
 
 import tls_memory
 # MicroPython's heap does not compact. Keep one contiguous block for TLS
-# before display, plot and calibration objects divide up the remaining heap.
+# before display and UI objects divide up the remaining heap.
 _tls_reserved = tls_memory.reserve()
 from https_upload import UploadTransport
 _upload_transport = UploadTransport(restore_after_transfer=False)
-# One scan per boot: four float32 measurements and one flag byte per point.
+# One scan per boot: four float32 measured values per point.
 # Plotting and upload share this storage; there are no separate plot arrays.
-_scan_bytes = bytearray(4096 * 17)
+_scan_bytes = bytearray(4096 * 16)
 # Reserve the unchanged 96-slot text raster pool before the large imports too.
 # Display construction and all hardware initialization still occur in run().
 _display_buffer = bytearray(48 * 1024)
+
+# Both calibration tables are small, fixed binary buffers. Reserve the active
+# table and the candidate workspace before UI imports fragment the heap. A
+# calibration never borrows or grows the RAM scan records.
+import current_baseline
+_baseline_bytes = bytearray(current_baseline.BUFFER_BYTES)
+_baseline_workspace = bytearray(current_baseline.WORKSPACE_BYTES)
 
 from scan_timing import ScanTiming, SLEEP
 _scan_timing = ScanTiming()
@@ -69,6 +76,12 @@ def scan_utc():
     return "%04d-%02d-%02dT%02d:%02d:%02dZ" % value[:6]
 
 
+def create_calibrator(instrument, settings):
+    return current_baseline.Calibrator(instrument, settings,
+                                      buffer=_baseline_workspace,
+                                      clock_ms=time.ticks_ms)
+
+
 def run():
     instrument = None
     display = None
@@ -78,8 +91,6 @@ def run():
     restarting = False
     try:
         notices = []
-        # Reserve/load contiguous calibration tables before display, input and
-        # radio construction fragments the heap. Boot pins remain forced low.
         try:
             # Normalize old settings in RAM. Only Settings may commit a file.
             settings = storage.load_settings(migrate=False)
@@ -87,14 +98,12 @@ def run():
             record_error("settings load", error)
             settings = dict(model.DEFAULT_SETTINGS)
             notices.append("Settings could not be loaded; defaults are in use. " + str(error))
+        baseline = current_baseline.Baseline(buffer=_baseline_bytes)
         try:
-            calibration = storage.load_calibration()
-            if calibration is not None:
-                model.validate_calibration(calibration)
-        except (ValueError, OSError, TypeError, KeyError, MemoryError) as error:
-            record_error("calibration load", error)
-            calibration = None
-            notices.append("Calibration unavailable. " + str(error))
+            baseline.load()
+        except (ValueError, OSError, TypeError) as error:
+            record_error("current baseline load", error)
+            notices.append("Current baseline could not be loaded; readings are uncorrected.")
         gc.collect()
         display = Display(raster_pool=_display_buffer)
         instrument = Instrument(timing=_scan_timing)
@@ -114,28 +123,13 @@ def run():
             notices.append("Touch unavailable; buttons remain active. Check touch wiring, then restart.")
         scan_buffer = PackedScanBuffer(_scan_bytes)
         cloud = RamCloudManager(scan_buffer, transport=_upload_transport, utc_provider=scan_utc)
-        if calibration is not None:
-            try:
-                cloud.prepare_calibration(calibration)
-            except Exception as error:
-                # The digest is an optimization, not a prerequisite for Home.
-                # Keep Settings reachable after an allocation/hash failure;
-                # begin_scan retries when no cached fingerprint is available.
-                gc.collect()
-                record_error("calibration fingerprint", error)
-                notices.append("Calibration fingerprint unavailable. Scan will retry; Settings remains available.")
         gc.collect()
-        app = App(display, inputs, Engine(instrument, timing=_scan_timing), settings, calibration,
+        app = App(display, inputs, Engine(instrument, timing=_scan_timing, baseline=baseline), settings,
                   startup_notice=" ".join(notices) if notices else None,
                   error_logger=record_error, wifi=wifi, cloud=cloud,
-                  calibration_on_disk=calibration is not None,
                   scan_buffer=scan_buffer, restart=request_restart,
-                  validated_calibration=calibration, timing=_scan_timing)
-        # App owns normalized settings and the active calibration. Keeping
-        # these boot references in this never-returning frame would retain an
-        # obsolete calibration after a later successful replacement.
+                  timing=_scan_timing, calibration_factory=create_calibrator)
         settings = None
-        calibration = None
         # Home is offline. Settings can explicitly use Wi-Fi; a scan first
         # acquires with the radio off, then connects only for its own upload.
         gc.collect()
@@ -188,17 +182,6 @@ def run():
                 sys.print_exception(error)
         Pin(21, Pin.OUT, value=0)
         Pin(20, Pin.OUT, value=0)
-        if app is not None:
-            try:
-                writer = getattr(app, "_calibration_writer", None)
-                if writer is not None:
-                    # Drop ownership even if cleanup fails. Shutdown never
-                    # commits the candidate or reloads calibration into RAM.
-                    app._calibration_writer = None
-                    writer.abort()
-            except Exception:
-                # Preserve the original fault and continue radio cleanup.
-                pass
         if cloud is not None:
             try:
                 cloud.pause()

@@ -7,7 +7,7 @@ from firmware import model, tls_memory
 from firmware.engine import Engine, OverrangeError
 from firmware.ram_scan import PackedScanBuffer
 from firmware.ui import App, PackedPlotView, UPLOAD_FAILURE, CURVES
-from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore, fixture_calibration
+from test_ui import FakeDisplay, FakeInputs, HostInstrument, MemoryStore
 from test_wifi_ui import FakeWifi
 
 
@@ -40,7 +40,6 @@ class RamCloud:
         self.state = "idle"
         self.calls = []
         self.fault = None
-        self.cached = None
         self.ack = True
         self.upload_error = False
         self.url = "https://script.google.com/macros/s/EXAMPLE/exec"
@@ -55,10 +54,9 @@ class RamCloud:
         self.calls.append("pause")
         return True
 
-    def begin_scan(self, settings, calibration, now_ms):
+    def begin_scan(self, settings, now_ms):
         self.calls.append("begin")
         self.buffer.clear()
-        self.cached = calibration
         self.state = "recording"
 
     def record_point(self, row):
@@ -70,9 +68,6 @@ class RamCloud:
         self.fault = fault
         self.state = "preparing"
 
-    def invalidate_calibration(self):
-        self.calls.append("invalidate")
-        self.cached = None
 
     def tick(self, now_ms, online=False):
         self.calls.append("tick:" + self.state)
@@ -113,11 +108,11 @@ class RamUITests(unittest.TestCase):
         self.cloud, self.wifi = RamCloud(self.buffer), RamWifi()
         self.restarts, self.logs = [], []
         self.settings = dict(model.DEFAULT_SETTINGS)
-        self.settings.update(drain_stop_uv=1000000, drain_step_uv=1000000,
+        self.settings.update(drain_start_uv=0, drain_stop_uv=1000000, drain_step_uv=1000000,
                              gate_start_uv=1000000, gate_stop_uv=1000000,
                              gate_step_uv=1000000, ina_average_count=4)
         self.app = App(self.display, self.inputs, self.engine, self.settings,
-                       fixture_calibration(), self.store, wifi=self.wifi, cloud=self.cloud,
+                       store=self.store, wifi=self.wifi, cloud=self.cloud,
                        scan_buffer=self.buffer, restart=lambda: self.restarts.append(True),
                        error_logger=lambda context, error: self.logs.append((context, str(error))))
         self.now = 0
@@ -151,7 +146,7 @@ class RamUITests(unittest.TestCase):
         self.assertEqual(self.cloud.calls, [])
         self.assertEqual(self.store.writes, 0)
         app = App(FakeDisplay(), FakeInputs(), Engine(HostInstrument()), self.settings,
-                  fixture_calibration(), startup_notice="Sensor setup needs checking",
+                  startup_notice="Sensor setup needs checking",
                   cloud=self.cloud, scan_buffer=self.buffer, restart=lambda: None)
         app.render()
         self.assertEqual(app.screen, "home")
@@ -159,10 +154,9 @@ class RamUITests(unittest.TestCase):
         self.assertEqual([hit[4] for hit in app.hits], ["left", "right"])
 
     def test_plot_views_allocate_no_legacy_buffers_and_read_same_records(self):
-        with patch("firmware.ui.PlotValues", side_effect=AssertionError("legacy allocation")):
-            app = App(FakeDisplay(), FakeInputs(), Engine(HostInstrument()), self.settings,
-                      fixture_calibration(), cloud=self.cloud,
-                      scan_buffer=self.buffer, restart=lambda: None)
+        app = App(FakeDisplay(), FakeInputs(), Engine(HostInstrument()), self.settings,
+                  cloud=self.cloud, scan_buffer=self.buffer, restart=lambda: None)
+        self.assertFalse(hasattr(app, "limit_flags"))
         self.assertIsInstance(app.rows, PackedPlotView)
         row = {"vds": 0.75, "vgs": 0.899999, "id_a": 0.125e-6, "ig_a": 0.002e-6,
                "requested_vgs": 1.0, "curve": 0}
@@ -171,9 +165,8 @@ class RamUITests(unittest.TestCase):
         self.assertEqual(len(self.buffer), 1)
         self.assertAlmostEqual(app.rows[0], 0.75)
         self.assertAlmostEqual(app.rows[1], 0.125e-6)
-        self.assertEqual(app.limit_flags[0], 4)
 
-    def test_packed_plot_breaks_off_gate_segments_and_derives_new_curve(self):
+    def test_packed_plot_joins_every_measured_point_and_separates_commanded_curves(self):
         self.app._ram_drain_count = 4
         lines = []
         self.display.line = lambda *args: lines.append(args)
@@ -185,27 +178,10 @@ class RamUITests(unittest.TestCase):
             self.app._add_point(row)
         self.app._draw_points()
         self.app._draw_points()
-        self.assertEqual([0, 0, 4, 0, 0, 0], list(self.app.limit_flags))
         self.assertEqual([0, 0, 0, 0, 1, 1], list(self.app.curves))
-        self.assertEqual([(*self.app._xy(0), *self.app._xy(1), CURVES[0]),
-                          (*self.app._xy(4), *self.app._xy(5), CURVES[1])], lines)
+        self.assertEqual([(*self.app._xy(a), *self.app._xy(b), CURVES[c])
+                          for a, b, c in ((0, 1, 0), (1, 2, 0), (2, 3, 0), (4, 5, 1))], lines)
 
-    def test_packed_plot_joins_50_and_100_mv_offsets_but_breaks_one_uv_beyond(self):
-        self.app._ram_drain_count = 10
-        lines = []
-        self.display.line = lambda *args: lines.append(args)
-        offsets = (0, 50000, 100000, 100001, 50000, -50000, -100000, -100001, 0, 0)
-        for index, offset_uv in enumerate(offsets):
-            row = {"vds": index / 10, "vgs": 1 + offset_uv / 1000000,
-                   "id_a": index * 0.1e-6, "ig_a": 0.0,
-                   "requested_vgs": 1.0, "curve": 0}
-            self.buffer.append(row)
-            self.app._add_point(row)
-        while self.app._plot_cursor < len(self.app.curves):
-            self.app._draw_points()
-        self.assertEqual([0, 0, 0, 4, 0, 0, 0, 4, 0, 0], list(self.app.limit_flags))
-        self.assertEqual([(*self.app._xy(left), *self.app._xy(right), CURVES[0])
-                          for left, right in ((0, 1), (1, 2), (4, 5), (5, 6), (8, 9))], lines)
 
     def test_settings_exit_save_or_cancel_restarts_and_hides_storage(self):
         for save in (False, True):
@@ -344,9 +320,8 @@ class RamUITests(unittest.TestCase):
         self.assertEqual(len(self.buffer), 2)
         self.assertEqual(self.cloud.calls.count("point"), 2)
         self.assertEqual(self.cloud.calls.count("finish"), 1)
-        self.assertIsNone(self.app.calibration)
-        self.assertIsNone(self.engine.calibration)
-        self.assertIsNone(self.cloud.cached)
+        self.assertFalse(hasattr(self.app, "calibration"))
+        self.assertFalse(hasattr(self.engine, "calibration"))
         self.assertFalse(any(call[0] == "autoconnect" for call in self.wifi.calls))
         self.assertEqual(self.store.writes, 0)
         self.until(lambda: bool(self.restarts))
@@ -477,6 +452,44 @@ class RamUITests(unittest.TestCase):
             pause.assert_not_called()
         self.assertEqual(self.restarts, [True])
 
+    def test_engine_fault_with_failed_zero_unwinds_before_display_or_network(self):
+        class Unwind(BaseException):
+            pass
+
+        for fault in (OSError("sensor offline"),
+                      OverrangeError("drain", "shunt_saturation", 32767, 1, 0.0819175, "V")):
+            with self.subTest(fault=type(fault).__name__):
+                self.setUp()
+                self.start()
+                self.tick()  # Actual drive precedes the failed read/shutdown.
+                self.assertTrue(any(self.instrument.duties.values()))
+                self.instrument.error = fault
+
+                def restart():
+                    self.assertEqual(self.engine.state, "error")
+                    self.assertFalse(self.engine.shutdown_succeeded)
+                    self.restarts.append(True)
+                    raise Unwind()
+
+                self.app._restart_callback = restart
+                with patch.object(self.instrument, "zero", side_effect=OSError("zero failed")) as zero, \
+                        patch.object(self.display, "fill") as paint, \
+                        patch.object(self.cloud, "pause") as cloud_pause, \
+                        patch.object(self.cloud, "discard_scan") as discard, \
+                        patch.object(self.wifi, "pause") as wifi_pause, \
+                        patch("builtins.print"):
+                    with self.assertRaises(Unwind):
+                        self.until(lambda: bool(self.restarts))
+                    zero.assert_called_once_with()
+                    paint.assert_not_called()
+                    cloud_pause.assert_not_called()
+                    discard.assert_not_called()
+                    wifi_pause.assert_not_called()
+                self.assertEqual(self.restarts, [True])
+                self.assertTrue(self.app._restart_called)
+                self.assertNotIn("finish", self.cloud.calls)
+                self.assertEqual(self.store.writes, 0)
+
     def test_overrange_automatically_uploads_only_completed_points_and_fault(self):
         self.start()
         self.until(lambda: len(self.buffer) == 1)
@@ -488,21 +501,23 @@ class RamUITests(unittest.TestCase):
         self.assertEqual(self.store.writes, 0)
         self.until(lambda: bool(self.restarts))
 
-    def test_zero_point_current_fault_shows_signed_measurement_without_upload(self):
+    def test_zero_point_negative_shunt_full_scale_is_not_uploaded(self):
         for button in ("left", "right"):
             with self.subTest(button=button):
                 self.setUp()
                 self.start()
                 self.instrument.error = OverrangeError(
-                    "drain", "current_limit", None, -1, 0.005, "A", -0.020915716)
+                    "drain", "shunt_saturation", 0x8000, -1, 0.08192, "V")
                 with patch("builtins.print"):
                     self.until(lambda: self.app.screen == "scan_error")
                 self.assertEqual(self.engine.state, "partial")
-                self.assertEqual(self.app._scan_fault["phase"], "park_drain")
+                self.assertEqual(self.app._scan_fault["phase"], "settle")
                 self.assertEqual(len(self.buffer), 0)
-                self.assertIn("DRAIN current limit", self.app.notice)
+                self.assertEqual(self.app._scan_fault["raw_code"], 0x8000)
+                self.assertEqual(self.app._scan_fault["sign"], -1)
+                self.assertIn("DRAIN shunt saturation", self.app.notice)
                 self.assertIn("No measured points.", self.app.notice)
-                self.assertIn("Measured -20.916 mA; limit 5.000 mA.", self.app.notice)
+                self.assertNotIn("current limit", self.app.notice)
                 self.assertIn("SCAN STOPPED", self.display.labels)
                 self.assertEqual({"drain": 0.0, "gate": 0.0}, self.instrument.duties)
                 self.assertTrue(self.engine.shutdown_succeeded)
@@ -517,13 +532,13 @@ class RamUITests(unittest.TestCase):
                 self.assertEqual(self.cloud.state, "idle")
                 self.assertIn("discard", self.cloud.calls)
 
-    def test_zero_point_alert_and_adc_faults_show_fixed_diagnostic_kind(self):
-        failures = (
-            OverrangeError("gate", "current_limit_alert", None, 1, 0.0001, "A"),
-            OverrangeError("drain", "shunt_saturation", 32767, 1, 0.0819175, "V"),
-            OverrangeError("gate", "bus_saturation", 32767, 1, 40.95875, "V"))
+    def test_both_shunt_full_scale_codes_on_either_channel_show_adc_fault(self):
+        failures = tuple(
+            OverrangeError(channel, "shunt_saturation", code, sign, voltage, "V")
+            for channel in ("drain", "gate")
+            for code, sign, voltage in ((0x7fff, 1, 0.0819175), (0x8000, -1, 0.08192)))
         for failure in failures:
-            with self.subTest(kind=failure.kind):
+            with self.subTest(channel=failure.channel, sign=failure.sign):
                 self.setUp()
                 self.start()
                 self.instrument.error = failure
@@ -534,6 +549,19 @@ class RamUITests(unittest.TestCase):
                 self.assertNotIn("Measured ", self.app.notice)
                 self.assertNotIn("finish", self.cloud.calls)
                 self.assertEqual(len(self.buffer), 0)
+
+    def test_historical_current_fault_metadata_still_renders_without_active_threshold(self):
+        # Historical receiver/file metadata remains understandable. New Engine
+        # acquisitions never construct this kind or enforce its old threshold.
+        self.app._outputs_safe = True
+        saved_fault = {"channel": "drain", "kind": "current_limit",
+                       "measured_value": -0.020915716, "limit_value": 0.005}
+        with patch("builtins.print"):
+            self.app._ram_seal(saved_fault)
+        self.assertIn("Measured -20.916 mA; limit 5.000 mA.", self.app.notice)
+        self.assertEqual(self.instrument.commands, [])
+        self.assertEqual(self.engine.state, "idle")
+        self.assertNotIn("finish", self.cloud.calls)
 
     def test_empty_fault_notice_does_not_echo_unrecognized_diagnostic_text(self):
         self.app._outputs_safe = True

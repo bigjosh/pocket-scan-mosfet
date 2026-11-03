@@ -60,6 +60,79 @@ def response(body, chunked=False):
 
 
 class UploadTests(unittest.TestCase):
+    def test_payload_progress_counts_only_accepted_body_bytes_through_redirect(self):
+        payload = b"p" * 2500
+        sockets = [Socket(b"HTTP/1.1 302 Found\r\nLocation: https://script.googleusercontent.com/macros/echo?key=private\r\n\r\n", short=73),
+                   Socket(response({"ok": True}), short=11)]
+        connections = []
+        def connect(host, ca):
+            connections.append(host)
+            return sockets[len(connections) - 1]
+        transport = UploadTransport(connector=connect, clock_sync=lambda: None,
+                                    clock=lambda: 0, source_factory=lambda path: Source(payload))
+        transport.start("https://script.google.com/macros/s/id/exec", "x", "a-b", "a" * 64, 1)
+        self.assertEqual((transport.upload_stage, transport.payload_sent, transport.payload_total), (1, 0, 2500))
+        saw_prefetch = saw_partial = saw_confirm = False
+        result = None
+        for unused in range(1000):
+            previous = transport.payload_sent
+            result = transport.step()
+            written = bytes(sockets[0].written)
+            actual = len(written.split(b"\r\n\r\n", 1)[1]) if b"\r\n\r\n" in written else 0
+            self.assertEqual(transport.payload_sent, actual)
+            self.assertGreaterEqual(transport.payload_sent, previous)
+            if transport.sent > transport.payload_sent:
+                saw_prefetch = True
+            if 0 < transport.payload_sent < len(payload):
+                saw_partial = True
+            if len(connections) == 2 or transport.state == "restore":
+                saw_confirm = True
+                self.assertEqual((transport.upload_stage, transport.payload_sent), (3, len(payload)))
+            if result is not None:
+                break
+        self.assertEqual(result, {"ok": True})
+        self.assertTrue(saw_prefetch and saw_partial and saw_confirm)
+        self.assertTrue(bytes(sockets[1].written).startswith(b"GET "))
+        self.assertEqual(transport.payload_sent, len(payload))
+        self.assertEqual(transport.upload_stage, 3)  # Only manager can confirm ACK identity.
+
+    def test_blocked_body_writes_and_buffer_prefetch_never_advance_percentage(self):
+        socket = Socket(response({"ok": True}), short=17)
+        transport = UploadTransport(connector=lambda *args: socket, clock_sync=lambda: None,
+                                    clock=lambda: 0, source_factory=lambda path: Source(b"x" * 2048))
+        transport.start("https://script.google.com/macros/s/id/exec", "x", "a-b", "a" * 64, 1)
+        for unused in range(100):
+            transport.step()
+            if transport._out_is_body and transport.out:
+                break
+        self.assertEqual(transport.upload_stage, 2)
+        self.assertEqual(transport.sent, 1024)
+        self.assertEqual(transport.payload_sent, 0)
+        pending = transport.out
+        with patch.object(socket, "write", return_value=None):
+            transport.step()
+        self.assertEqual(transport.payload_sent, 0)
+        self.assertEqual(transport.out, pending)
+        with patch.object(socket, "write", side_effect=OSError(11)):
+            transport.step()
+        self.assertEqual(transport.payload_sent, 0)
+        self.assertEqual(transport.out, pending)
+        transport.step()
+        self.assertEqual(transport.payload_sent, 17)
+        with patch.object(socket, "write", side_effect=OSError(5)):
+            with self.assertRaises(RuntimeError):
+                transport.step()
+        self.assertEqual(transport.payload_sent, 17)
+        self.assertEqual(transport.upload_stage, 2)
+
+    def test_missing_explicit_source_factory_never_reads_file_or_connects(self):
+        calls = []
+        transport = UploadTransport(connector=lambda *args: calls.append("network"))
+        with self.assertRaisesRegex(ValueError, "source factory is required"):
+            transport.start("https://script.google.com/macros/s/EXAMPLE/exec", "private-file", "scan", "a" * 64, 1)
+        self.assertEqual(calls, [])
+        self.assertIsNone(transport.stream)
+
     def test_one_scan_boot_returns_ack_without_reserving_another_tls_workspace(self):
         memory = Memory()
         ack = {"ok": True, "scan_id": "face-1234"}
@@ -192,7 +265,7 @@ class UploadTests(unittest.TestCase):
         calls = []
         transport = UploadTransport(connector=lambda host, ca: calls.append("network"),
                                     source_factory=lambda path: calls.append("source"), memory=memory)
-        with self.assertRaisesRegex(RuntimeError, "Upload memory unavailable; scan remains saved"):
+        with self.assertRaisesRegex(RuntimeError, "Upload memory unavailable; scan remains in RAM"):
             transport.start("https://script.google.com/macros/s/id/exec", "x", "a-b", "a" * 64, 1)
         self.assertEqual([], calls)
         self.assertEqual("idle", transport.state)

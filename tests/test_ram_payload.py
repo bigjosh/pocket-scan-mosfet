@@ -1,4 +1,4 @@
-"""Schema-3 RAM snapshot identity, exact geometry and bounded replay checks."""
+"""Schema-4 RAM snapshot identity, exact geometry and bounded replay checks."""
 
 import copy
 import gc
@@ -15,20 +15,10 @@ from firmware.ram_scan import PackedScanBuffer
 
 def settings(count=1):
     result = dict(model.DEFAULT_SETTINGS)
-    result.update(drain_stop_uv=(count - 1) * 1000, drain_step_uv=1000, gate_stop_uv=0)
+    result.update(drain_start_uv=0, drain_stop_uv=(count - 1) * 1000, drain_step_uv=1000,
+                  gate_start_uv=0, gate_stop_uv=0, source_voltage_uv=0, driver_supply_uv=5000000)
     return result
 
-
-def calibration(config=None):
-    config = settings() if config is None else config
-    return {"version": 2, "metadata": {"driver_supply_v": 5.0, "pwm_hz": 100000,
-                                      "acquisition_mode": model.ACQUISITION_MODE,
-                                      "ina_average_count": config["ina_average_count"],
-                                      "bus_conversion_us": model.INA_CONVERSION_US,
-                                      "shunt_conversion_us": model.INA_CONVERSION_US,
-                                      "calibration_repeat_blocks": model.CALIBRATION_REPEAT_BLOCKS,
-                                      "label": "Gate \u03bcA / \u03a9", "detail": {"value": "original"}},
-            "channels": {"drain": {"points": [{"terminal_v": 0.0, "shunt_v": -1e-6}]}}}
 
 
 def point(config, index=0):
@@ -51,14 +41,21 @@ def fault(config, index=0):
             "requested_vgs": row["requested_vgs"], "phase": "sample"}
 
 
-def new_scan(config=None, cal=None, **changes):
+def new_scan(config=None, **changes):
     config = settings() if config is None else config
     arguments = {"buffer": PackedScanBuffer(), "settings": config,
-                 "calibration": calibration(config) if cal is None else cal,
                  "device_id": "abcd", "scan_id": "abcd-0000000000000001",
                  "created_utc": None, "started_ms": 10}
     arguments.update(changes)
     return ram_payload.RamScan(**arguments)
+
+
+def correction_metadata():
+    return {"version": 1, "sha256": "a" * 64, "lookup": "linear_endpoint_hold",
+            "drain": {"min_bus_uv": 3300000, "max_bus_uv": 16000000,
+                      "zero_duty_u16": 42, "zero_residual_uv": 2500, "zero_valid": True},
+            "gate": {"min_bus_uv": 1250, "max_bus_uv": 16000000,
+                     "zero_duty_u16": 8400, "zero_residual_uv": -1250, "zero_valid": True}}
 
 
 def prepare(scan, budget=256):
@@ -88,7 +85,66 @@ def wire(scan, size=1024):
 
 
 class RamPayloadTests(unittest.TestCase):
-    def test_schema3_measured_float32_records_exact_targets_and_repeat_hash(self):
+    def test_schema5_uses_actual_binary_baseline_fingerprint_without_retaining_table(self):
+        from firmware.current_baseline import Baseline
+        config = settings()
+        baseline = Baseline()
+        baseline.begin(config)
+        for role in (0, 1):
+            baseline.add_knot(role, 0, 1000, 0)
+            baseline.add_knot(role, 5000000, 5000000, 20000)
+        baseline.finish()
+        metadata = baseline.metadata(config)
+        self.assertEqual(metadata["sha256"], hashlib.sha256(baseline._data).hexdigest())
+        scan = new_scan(config, current_correction=metadata)
+        scan.append(point(config))
+        scan.seal(20)
+        prepare(scan)
+        self.assertEqual(json.loads(wire(scan))["current_correction"], metadata)
+        self.assertFalse(any(value is baseline or value is baseline._data for value in vars(scan).values()))
+
+    def test_schema5_snapshots_correction_once_and_preserves_four_measured_values(self):
+        config = settings(14)
+        correction = correction_metadata()
+        expected = copy.deepcopy(correction)
+        with patch("builtins.open", side_effect=AssertionError("baseline reread")):
+            scan = new_scan(config, current_correction=correction)
+            correction["drain"]["zero_duty_u16"] = 9999
+            correction["sha256"] = "b" * 64
+            for index in range(14):
+                scan.append(point(config, index))
+            scan.seal(1010)
+            prepare(scan, 31)
+            body = wire(scan)
+            self.assertEqual(body, wire(scan, 17))
+        value = json.loads(body)
+        self.assertEqual(5, value["schema_version"])
+        self.assertEqual(expected, value["current_correction"])
+        self.assertEqual(4, len(value["points"][0]))
+        self.assertNotIn("calibration", value)
+        self.assertEqual(hashlib.sha256(body).hexdigest(), scan.sha256)
+        self.assertTrue(all(len(chunk) <= 256 for chunk in scan._header))
+        self.assertLess(sum(map(len, scan._header)), 2048)
+
+    def test_schema5_rejects_unbounded_or_malformed_metadata_before_acquisition(self):
+        for path, value in (("version", True), ("version", 2), ("sha256", "z" * 64),
+                            ("lookup", "extrapolate"), ("gate", None),
+                            ("gate.zero_valid", 1), ("gate.zero_duty_u16", 65536),
+                            ("gate.zero_residual_uv", float("nan")),
+                            ("gate.zero_residual_uv", 42000001),
+                            ("drain.min_bus_uv", 17000000), ("drain.max_bus_uv", False)):
+            correction = correction_metadata()
+            parts = path.split(".")
+            target = correction if len(parts) == 1 else correction[parts[0]]
+            target[parts[-1]] = value
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                new_scan(current_correction=correction)
+        correction = correction_metadata()
+        correction["table"] = [0] * 4096
+        with self.assertRaises(ValueError):
+            new_scan(current_correction=correction)
+
+    def test_schema4_measured_float32_records_implicit_grid_and_repeat_hash(self):
         config = settings(14)
         config.update(drain_stop_uv=1300000, drain_step_uv=100000)
         scan = new_scan(config, created_utc="2026-11-02T20:01:02Z")
@@ -98,9 +154,9 @@ class RamPayloadTests(unittest.TestCase):
         prepare(scan, 31)
         expected = wire(scan)
         value = json.loads(expected)
-        self.assertEqual(3, value["schema_version"])
+        self.assertEqual(4, value["schema_version"])
         self.assertEqual(list(ram_payload.COLUMNS), value["columns"])
-        self.assertEqual(11, len(value["columns"]))
+        self.assertEqual(4, len(value["columns"]))
         self.assertEqual(14, value["point_count"])
         self.assertEqual("complete", value["outcome"])
         self.assertIsNone(value["fault"])
@@ -109,11 +165,10 @@ class RamPayloadTests(unittest.TestCase):
         self.assertEqual(config, value["settings"])
         self.assertEqual(model.acquisition_metadata(config), value["acquisition"])
         self.assertEqual("unavailable", value["acquisition"]["point_variance"])
-        self.assertEqual(1.3, value["points"][-1][2])
-        self.assertEqual([False, True, False], value["points"][0][-3:])
+        self.assertNotIn("calibration", value)
         for index, packed in enumerate(value["points"]):
             expected_row = point(config, index)
-            for field, actual in zip(("vds", "vgs", "id_a", "ig_a"), packed[4:8]):
+            for field, actual in zip(("vds", "vgs", "id_a", "ig_a"), packed):
                 f32 = struct.unpack("<f", struct.pack("<f", expected_row[field]))[0]
                 self.assertEqual(float("%.9g" % f32), actual)
         for size in (1, 17, 256, 1024):
@@ -122,45 +177,23 @@ class RamPayloadTests(unittest.TestCase):
         self.assertEqual(len(expected), scan.wire_size)
         self.assertTrue(scan.prepare_step())
 
-    def test_snapshots_detach_inputs_metadata_and_calibration_points(self):
-        class Points(list):
-            pass
-        config, cal = settings(), calibration()
-        points = Points(cal["channels"]["drain"]["points"])
-        points_ref = weakref.ref(points)
-        cal["channels"]["drain"]["points"] = points
-        digest = ram_payload.calibration_hash(cal)
-        original = copy.deepcopy(config)
-        scan = new_scan(config, cal)
+    def test_snapshot_detaches_settings_and_has_no_calibration_dependency(self):
+        config = settings()
+        original = dict(config)
+        scan = new_scan(config)
         config["gate_stop_uv"] = 1000000
-        cal["metadata"]["detail"]["value"] = "changed"
         scan.settings["gate_stop_uv"] = 2000000
-        del points, cal
-        gc.collect()
-        self.assertIsNone(points_ref())
         scan.append(point(original))
         scan.seal(20)
         prepare(scan)
         value = json.loads(wire(scan))
         self.assertEqual(original, value["settings"])
-        self.assertEqual("original", value["calibration"]["metadata"]["detail"]["value"])
-        self.assertEqual(digest, value["calibration"]["sha256"])
+        self.assertNotIn("calibration", value)
+        self.assertFalse(hasattr(ram_payload, "calibration_hash"))
         self.assertIsNone(value["created_utc"])
-        for key, replacement in (("scan_id", "ffff"), ("created_utc", "2026-11-02T00:00:00Z"),
-                                 ("sha256", "a" * 64), ("wire_size", 1)):
+        for key in ("scan_id", "created_utc", "sha256", "wire_size"):
             with self.assertRaises(AttributeError):
-                setattr(scan, key, replacement)
-
-    def test_cached_calibration_fingerprint_skips_point_rehash(self):
-        with patch.object(ram_payload, "calibration_hash", side_effect=AssertionError("unexpected hash")):
-            scan = new_scan(calibration_sha256="a" * 64)
-        scan.append(point(settings()))
-        scan.seal(20)
-        prepare(scan)
-        self.assertEqual("a" * 64, json.loads(wire(scan))["calibration"]["sha256"])
-        for invalid in ("A" * 64, "a" * 63, True, 123):
-            with self.assertRaises(ValueError):
-                new_scan(calibration_sha256=invalid)
+                setattr(scan, key, "replacement")
 
     def test_full4096_records_remain_bounded_without_files_or_full_json_dumps(self):
         config = settings(model.MAX_POINTS)
@@ -181,10 +214,10 @@ class RamPayloadTests(unittest.TestCase):
         self.assertTrue(all(len(chunk) <= 256 for chunk in scan._header + scan._tail))
         self.assertNotIn("archive", ram_payload.__dict__)
 
-    def test_partial_zero_and_mid_curve_positions_preserve_fault(self):
+    def test_nonempty_partial_mid_curve_positions_preserve_fault(self):
         config = settings(3)
         config.update(gate_stop_uv=1000000, gate_step_uv=500000)
-        for count in (0, 4, 8):
+        for count in (1, 4, 8):
             with self.subTest(count=count):
                 scan = new_scan(config)
                 for index in range(count):
@@ -237,16 +270,15 @@ class RamPayloadTests(unittest.TestCase):
         scan.seal(30, diagnostic)
         prepare(scan)
         value = json.loads(wire(scan))
-        self.assertEqual([-1, -0.5], value["points"][0][2:4])
-        self.assertEqual([0, -0.5], value["points"][1][2:4])
-        self.assertEqual([-1, 0], value["points"][3][2:4])
+        self.assertEqual(-1000000, value["settings"]["drain_start_uv"])
+        self.assertEqual(-500000, value["settings"]["gate_start_uv"])
+        self.assertEqual(4, len(value["points"][0]))
         self.assertEqual(diagnostic, value["fault"])
 
     def test_record_position_averaging_requests_and_values_validate_before_append(self):
         for change in ({"index": 1}, {"curve": 1}, {"index": False}, {"acquisition_blocks_completed": 3},
                        {"acquisition_blocks_completed": 1.0}, {"requested_vgs": 1}, {"requested_vds": None},
-                       {"id_a": 2}, {"vds": 37}, {"ig_a": float("nan")},
-                       {"gate_voltage_limited": 1}):
+                       {"ig_a": float("nan")}, {"vds": float("inf")}):
             scan = new_scan()
             row = point(settings())
             row.update(change)
@@ -278,18 +310,32 @@ class RamPayloadTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     candidate.seal(30, bad)
 
-    def test_legacy_or_mismatched_calibration_cannot_be_relabelled_as_triggered(self):
-        for key, replacement in (("acquisition_mode", "continuous"), ("ina_average_count", 4),
-                                 ("bus_conversion_us", 588), ("shunt_conversion_us", 588),
-                                 ("calibration_repeat_blocks", 1)):
-            candidate = calibration()
-            candidate["metadata"][key] = replacement
-            with self.assertRaises(ValueError):
-                new_scan(cal=candidate)
-        candidate = calibration()
-        del candidate["metadata"]["acquisition_mode"]
-        with self.assertRaises(ValueError):
-            new_scan(cal=candidate)
+    def test_zero_points_cannot_upload_even_with_a_hardware_fault(self):
+        config = settings(2)
+        scan = new_scan(config)
+        with self.assertRaisesRegex(ValueError, "at least one"):
+            scan.seal(30, fault(config))
+        self.assertFalse(scan.buffer.frozen)
+
+    def test_finite_out_of_target_or_large_values_are_recorded_unchanged(self):
+        scan = new_scan()
+        row = point(settings())
+        row.update(vds=37, vgs=-39, id_a=2, ig_a=-3)
+        scan.append(row)
+        scan.seal(20)
+        prepare(scan)
+        self.assertEqual([[37, -39, 2, -3]], json.loads(wire(scan))["points"])
+
+    def test_extreme_finite_float32_encoding_remains_finite_on_wire(self):
+        scan = new_scan()
+        row = point(settings())
+        maximum = struct.unpack('<f', bytes.fromhex('ffff7f7f'))[0]
+        row.update(vds=maximum, vgs=-maximum, id_a=maximum, ig_a=-maximum)
+        scan.append(row)
+        scan.seal(20)
+        prepare(scan)
+        expected = float('%.9g' % maximum)
+        self.assertEqual([[expected, -expected, expected, -expected]], json.loads(wire(scan))["points"])
 
     def test_freeze_close_and_generation_checks_prevent_changed_replay(self):
         scan = new_scan()
@@ -340,10 +386,6 @@ class RamPayloadTests(unittest.TestCase):
                         {"created_utc": "bad"}, {"buffer": PackedScanBuffer(capacity=1), "settings": settings(2)}):
             with self.assertRaises(ValueError):
                 new_scan(**changes)
-        cal = calibration()
-        cal["metadata"]["label"] = "x" * ram_payload.HEADER_BYTES
-        with self.assertRaises(ValueError):
-            new_scan(cal=cal)
         scan = new_scan()
         scan.append(point(settings()))
         for now in (9, 0x10000000a, True):

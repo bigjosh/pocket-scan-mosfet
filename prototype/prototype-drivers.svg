@@ -156,6 +156,6 @@
 <polyline class="wire" points="60,1270 710,1270"/>
 <circle cx="710" cy="1270" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
 <text x="735" y="1277" font-size="23" fill="#172b3a" text-anchor="start" font-weight="bold">DUT S / VS = nominal 3.3 V</text>
-<text x="60" y="1310" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Actual terminal = VBUS - raw shunt voltage. VDS / VGS subtract configured VS. Recalibrate after hardware / supply changes.</text>
+<text x="60" y="1310" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Terminal = VBUS - raw VSH; VDS/VGS subtract VS. I = (VSH - baseline at VBUS) / R when calibrated.</text>
 <text x="40" y="1348" font-size="16" fill="#526674" text-anchor="start" font-weight="normal">onsemi 2N7000G: flat marked face toward you, leads down, left to right = 1 Source / 2 Gate / 3 Drain. J1 is a separate fixture.</text>
 </svg>

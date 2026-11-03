@@ -1,4 +1,4 @@
-"""Hardware averaging migration and explicit calibration acquisition binding."""
+"""Hardware averaging migration and acquisition metadata."""
 
 import copy
 import json
@@ -18,16 +18,6 @@ def legacy_settings(version=2, batches=2, samples=2):
         result[field + ("_v" if version == 1 else "_uv")] = value / 1000000 if version == 1 else value
     return result
 
-
-def calibration():
-    return {"version": 1,
-            "metadata": {"driver_supply_v": 5.0, "pwm_hz": model.PWM_HZ},
-            "channels": {role: {"shunt_ohm": resistance,
-                        "points": [{"terminal_v": voltage, "shunt_v": 0.0,
-                                    "duty": voltage / model.PWM_FULL_SCALE_V}
-                                   for voltage in (0.0, 2.0)]}
-                         for role, resistance in (("drain", model.DRAIN_SHUNT_OHM),
-                                                  ("gate", model.GATE_SHUNT_OHM))}}
 
 
 class HardwareAveragingSettingsTests(unittest.TestCase):
@@ -74,15 +64,6 @@ class HardwareAveragingSettingsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 model.validate_settings(legacy_settings(2, batches, samples))
 
-    def test_historical_archive_settings_keep_original_counts_and_version(self):
-        for version in (1, 2):
-            saved = legacy_settings(version, batches=3, samples=7)
-            checked = model.validate_archive_settings(saved)
-            self.assertEqual(checked, saved)
-            self.assertEqual(checked["version"], version)
-            self.assertNotIn("ina_average_count", checked)
-        self.assertEqual(model.validate_archive_settings(model.DEFAULT_SETTINGS), model.DEFAULT_SETTINGS)
-
     def test_storage_boot_normalizes_without_write_then_explicit_migration_commits(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "settings.json"
@@ -95,31 +76,6 @@ class HardwareAveragingSettingsTests(unittest.TestCase):
             committed = storage.load_settings(str(path))
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), committed)
             self.assertEqual(committed["version"], 3)
-
-    def test_mode_change_invalidates_legacy_calibration_without_destroying_legacy_data(self):
-        old = calibration()
-        before = copy.deepcopy(old)
-        self.assertIs(model.validate_calibration(old), old)
-        with self.assertRaisesRegex(ValueError, "measurement mode changed; recalibrate"):
-            model.validate_calibration(old, model.DEFAULT_SETTINGS)
-        self.assertEqual(old, before)
-
-    def test_matching_mode_count_timings_and_three_calibration_blocks_are_required(self):
-        value = calibration()
-        metadata = value["metadata"]
-        metadata.update(model.acquisition_metadata(model.DEFAULT_SETTINGS))
-        metadata["calibration_repeat_blocks"] = 3
-        self.assertIs(model.validate_calibration(value, model.DEFAULT_SETTINGS), value)
-        for key, replacement in (("acquisition_mode", "continuous"), ("ina_average_count", 16),
-                                  ("bus_conversion_us", 588), ("shunt_conversion_us", 588),
-                                  ("calibration_repeat_blocks", 1), ("ina_average_count", 64.0),
-                                  ("calibration_repeat_blocks", True)):
-            broken = dict(metadata)
-            broken[key] = replacement
-            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "recalibrate"):
-                model.validate_calibration_acquisition(broken, model.DEFAULT_SETTINGS)
-        with self.assertRaisesRegex(ValueError, "recalibrate"):
-            model.validate_calibration(value, dict(model.DEFAULT_SETTINGS, ina_average_count=128))
 
     def test_single_block_metadata_does_not_invent_point_variance(self):
         value = model.acquisition_metadata(model.DEFAULT_SETTINGS)
