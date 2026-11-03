@@ -1,0 +1,377 @@
+{
+  "revision": "G",
+  "date": "2026-11-02",
+  "documentation_updated": "2026-11-03",
+  "configuration": "3.3 V source/reference; ground-referenced 2x9 V battery with NO relay in positive lead",
+  "pwm_hz": 100000,
+  "nominal_pwm_gain": {
+    "drain": 6.8,
+    "gate": 7.8
+  },
+  "nominal_offset_v": {
+    "drain": 3.3,
+    "gate": 0
+  },
+  "nominal_source_v": 3.3,
+  "nominal_minimum_vds_v": 0,
+  "nominal_filter_tau_ms": {
+    "drain": 8.717948717948719,
+    "gate": 10.0
+  },
+  "zero_drive_check": {
+    "date": "2026-11-02",
+    "samples": 40,
+    "pins_low": true,
+    "drain_terminal_mean_v": 3.292975,
+    "drain_terminal_range_v": [
+      3.2912574,
+      3.2937572
+    ],
+    "gate_terminal_mean_v": 0.020715122,
+    "gate_terminal_range_v": [
+      0.019985,
+      0.022495
+    ],
+    "conditions": "1k 5% R1 fitted; outputs open, probes removed, shunts unbridged; source configured as 3.3 V, not measured by this check",
+    "is_full_calibration": false,
+    "evidence": "output/smoke-test/source33-zero-1k-final-20261102.log"
+  },
+  "nominal_driver_supply_v": 18,
+  "settle_ms": 100,
+  "ina_average_count": 64,
+  "acquisition_mode": "ina226_triggered_v1",
+  "components": {
+    "A1": {
+      "part": "Pico 2 W (scanner connections only)",
+      "pins": {
+        "24": "GP18 / I2C1 SDA",
+        "25": "GP19 / I2C1 SCL",
+        "26": "GP20 / PWM_D",
+        "27": "GP21 / PWM_G",
+        "36": "3V3(OUT)",
+        "38": "GND"
+      }
+    },
+    "U1": {
+      "part": "LM358P / PDIP-8",
+      "pins": {
+        "1": "OUT1",
+        "2": "IN1-",
+        "3": "IN1+",
+        "4": "V-",
+        "5": "IN2+",
+        "6": "IN2-",
+        "7": "OUT2",
+        "8": "V+"
+      }
+    },
+    "U2": {
+      "part": "INA226 drain / DGS-10 IC",
+      "pins": {
+        "1": "A1",
+        "2": "A0",
+        "3": "ALERT",
+        "4": "SDA",
+        "5": "SCL",
+        "6": "VS (logic supply)",
+        "7": "GND",
+        "8": "VBUS",
+        "9": "IN-",
+        "10": "IN+"
+      }
+    },
+    "U3": {
+      "part": "INA226 gate / DGS-10 IC",
+      "pins": {
+        "1": "A1",
+        "2": "A0",
+        "3": "ALERT",
+        "4": "SDA",
+        "5": "SCL",
+        "6": "VS (logic supply)",
+        "7": "GND",
+        "8": "VBUS",
+        "9": "IN-",
+        "10": "IN+"
+      }
+    },
+    "J1": {
+      "part": "Removable DUT fixture connector",
+      "pins": {
+        "1": "D",
+        "2": "G",
+        "3": "S"
+      }
+    },
+    "B1": {
+      "part": "9 V battery, lower half of series pack",
+      "pins": {
+        "+": "positive",
+        "-": "negative"
+      }
+    },
+    "B2": {
+      "part": "9 V battery, upper half of series pack",
+      "pins": {
+        "+": "positive",
+        "-": "negative"
+      }
+    },
+    "K1": {
+      "part": "Relay module, ASIN B0F3TM3RZ6; used external terminals only",
+      "product_url": "https://www.amazon.com/dp/B0F3TM3RZ6",
+      "pins": {
+        "VCC": "module supply",
+        "ACTIVATE": "module enable input",
+        "GND": "module ground",
+        "COM": "used contact common",
+        "NO": "used normally open contact"
+      }
+    },
+    "R1": {
+      "part": "1k 5% fitted",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R3": {
+      "part": "68k",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R4": {
+      "part": "10k",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R5": {
+      "part": "1 ohm nominal; installed current scale 0.789 ohm",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R6": {
+      "part": "1k nominal; not remeasured",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R8": {
+      "part": "68k",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R9": {
+      "part": "10k",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R10": {
+      "part": "680 ohm nominal; provisional scale 638 ohm",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "R13": {
+      "part": "6.8k",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "C1": {
+      "part": "10uF, >=10V; ceramic preferred",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "C3": {
+      "part": "10uF, >=10V; ceramic preferred",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "C5": {
+      "part": "100nF, 50V",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "C6": {
+      "part": "10uF, 50V, polarized",
+      "pins": {
+        "1": "+",
+        "2": "-"
+      }
+    },
+    "C7": {
+      "part": "100nF, >=10V",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    },
+    "C8": {
+      "part": "100nF, >=10V",
+      "pins": {
+        "1": "terminal 1",
+        "2": "terminal 2"
+      }
+    }
+  },
+  "nets": {
+    "GND": [
+      "A1.38",
+      "U1.4",
+      "U2.2",
+      "U2.7",
+      "U3.1",
+      "U3.7",
+      "R4.2",
+      "R9.2",
+      "C1.2",
+      "C3.2",
+      "C5.2",
+      "C6.2",
+      "C7.2",
+      "C8.2",
+      "B1.-",
+      "K1.GND"
+    ],
+    "+3V3_VS": [
+      "A1.36",
+      "J1.3",
+      "R13.1",
+      "U2.1",
+      "U2.6",
+      "U3.6",
+      "U3.2",
+      "C7.1",
+      "C8.1",
+      "K1.VCC",
+      "K1.ACTIVATE"
+    ],
+    "BAT_MID": [
+      "B1.+",
+      "B2.-"
+    ],
+    "BAT_18_RAW": [
+      "B2.+",
+      "K1.COM"
+    ],
+    "LM_VPLUS": [
+      "K1.NO",
+      "U1.8",
+      "C5.1",
+      "C6.1"
+    ],
+    "PWM_D": [
+      "A1.26",
+      "R1.1"
+    ],
+    "D_REF": [
+      "R1.2",
+      "C1.1",
+      "U1.3",
+      "R13.2"
+    ],
+    "D_FB": [
+      "U1.2",
+      "R3.1",
+      "R4.1"
+    ],
+    "D_DRV": [
+      "U1.1",
+      "R3.2",
+      "R5.1",
+      "U2.8",
+      "U2.10"
+    ],
+    "DUT_D": [
+      "R5.2",
+      "U2.9",
+      "J1.1"
+    ],
+    "PWM_G": [
+      "A1.27",
+      "R6.1"
+    ],
+    "G_REF": [
+      "R6.2",
+      "C3.1",
+      "U1.5"
+    ],
+    "G_FB": [
+      "U1.6",
+      "R8.1",
+      "R9.1"
+    ],
+    "G_DRV": [
+      "U1.7",
+      "R8.2",
+      "R10.1",
+      "U3.8",
+      "U3.10"
+    ],
+    "DUT_G": [
+      "R10.2",
+      "U3.9",
+      "J1.2"
+    ],
+    "I2C_SDA": [
+      "A1.24",
+      "U2.4",
+      "U3.4"
+    ],
+    "I2C_SCL": [
+      "A1.25",
+      "U2.5",
+      "U3.5"
+    ]
+  },
+  "no_connect": [
+    "U2.3",
+    "U3.3"
+  ],
+  "relay_module": {
+    "product_url": "https://www.amazon.com/dp/B0F3TM3RZ6",
+    "supply_v": 3.3,
+    "enable_tied_to_vcc": true,
+    "internal_driver_and_suppression": "not verified"
+  },
+  "notes": [
+    "User confirmed source J1.3 on Pico 3V3 pin 36 and the 6.8k offset resistor fitted. Zero-drive checks and open-output calibration are recorded in firmware/README.md; this is not a complete hardware validation.",
+    "INA226 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.",
+    "onsemi 2N7000G: flat marked face toward you, leads down, left to right = pin 1 Source, pin 2 Gate, pin 3 Drain. Connect fixture J1.1 to DUT pin 3, J1.2 to pin 2, J1.3 to pin 1. Manufacturer datasheet, Mouser mirror: https://www.mouser.com/datasheet/2/308/2N7000-D-33553.pdf pages 1 and 4.",
+    "C5 is fitted. C6 is shown as intended bulk decoupling; installation remains unconfirmed.",
+    "U2 drain 0x44: A1 = 3V3, A0 = GND. U3 gate 0x41: A1 = GND, A0 = 3V3.",
+    "R13 is from 3V3 to drain IN1+ pin 3; R4 stays grounded. Gate topology unchanged.",
+    "R1 is now 1k 5%, replacing the temporary 1.1k and earlier incorrect 10k. R6 remains nominal 1k, not remeasured.",
+    "Ideal zero-PWM drain is VS. Resistor tolerances can put the actual floor above or below VS; recalibrate drive/baseline after hardware or supply changes. The early zero-drive check does not establish present floor coverage.",
+    "Historical temporary 1.1k check: drain mean 3.667564 V, gate mean 0.008904 V; see source33-zero-1k1-reseated-20261102.log. These are not the current resistor results.",
+    "K1 is the user-linked relay module B0F3TM3RZ6. Labels name used external functions, not header positions.",
+    "User confirmed module VCC and ACTIVATE tied to 3V3, GND to ground. It remains enabled during soft reset.",
+    "LM358 V+ is nominal 18 V relative to GND; batteries no longer float above source. VBUS/VSYS have no scanner wires.",
+    "3V3 is nominal: measure under load and enter actual VS. No source ADC3 readback. Old 5 V calibration must be replaced.",
+    "Module internal driver and suppression are unverified. No external diode across module power is specified as coil protection.",
+    "3V3 load must absorb source-return current; keep 5 mA drain limit pending load tests. Power switching does not guarantee DUT isolation.",
+    "Existing breakout I2C pull-ups go to 3V3; external R11/R12 omitted. C7/C8 may already be fitted.",
+    "R2/R7/C2/C4 removed. Drain RC 8.72 ms with R13, gate RC 10 ms nominal. Polarized C1/C3: terminal 1 positive.",
+    "Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate 680 ohm nominal, provisional scale 638 ohm."
+  ]
+}

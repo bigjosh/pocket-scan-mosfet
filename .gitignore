@@ -1,0 +1,39 @@
+# Private deployment state, bench captures, downloaded tools and build products.
+/.local/
+/.tools/*
+!/.tools/mpy-cross-requirements.txt
+/output/
+/tmp/
+/.venv/
+/venv/
+
+# Schematics are kept as readable SVG plus their generators/netlist.
+/prototype/*.png
+/prototype/full/print-page-*.png
+
+# Python and MicroPython build caches.
+__pycache__/
+*.py[cod]
+*.mpy
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Device-specific files: never deploy another unit's calibration or credentials.
+settings.json
+calibration.bin
+calibration.json
+wifi.json
+cloud.json
+scans/
+.env
+.env.*
+*.key
+*.p12
+*.pfx
+
+# Local editor and operating-system files.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

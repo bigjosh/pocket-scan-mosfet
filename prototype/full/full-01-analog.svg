@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1414" viewBox="0 0 2000 1414">
+<title>Full schematic - drain and gate channels</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect width="2000" height="1414" fill="#fff"/>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Full schematic - drain and gate channels</text>
+<text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pin numbers and names are shown at active devices. Identical net labels connect across sheets. U1A/U1B are the same LM358P.</text>
+<rect x="35" y="120" width="1930" height="535" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="55" y="152" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Drain drive and current / voltage sensing</text>
+<text x="65" y="220" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">A1 pin 26</text>
+<text x="65" y="248" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP20 / PWM_D</text>
+<text x="65" y="302" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_D</text>
+<polyline class="wire" points="65,330 200,330"/>
+<polyline class="wire" points="200,330 212,330"/>
+<polyline class="wire" points="288,330 300,330"/>
+<rect x="212" y="321" width="76" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="250.0" y="312" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R1  1k 5% fitted</text>
+<text x="206" y="357" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="294" y="357" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="300,330 800,330 800,305 900,305"/>
+<circle cx="500" cy="330" r="4" fill="#236b69"/>
+<polyline class="wire" points="500,330 500,365"/>
+<polyline class="wire" points="483,365 517,365"/>
+<polyline class="wire" points="483,375 517,375"/>
+<polyline class="wire" points="500,375 500,397"/>
+<polyline class="wire" points="500,397 500,409"/>
+<polyline class="wire" points="485,409 515,409"/>
+<polyline class="wire" points="490,416 510,416"/>
+<polyline class="wire" points="495,423 505,423"/>
+<text x="523" y="376" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C1  10uF &gt;=10V</text>
+<text x="470" y="353" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="470" y="395" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="500" y="298" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_REF</text>
+<text x="650" y="190" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="700,205 700,217"/>
+<polyline class="wire" points="700,263 700,275"/>
+<rect x="691" y="217" width="18" height="46" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="719" y="245.0" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">R13  6.8k</text>
+<text x="676" y="221" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="676" y="271" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<polyline class="wire" points="700,275 700,330"/>
+<circle cx="700" cy="330" r="4" fill="#236b69"/>
+<text x="65" y="410" font-size="19" fill="#526674" text-anchor="start" font-weight="normal">100 kHz PWM; one RC pole</text>
+<polygon points="900,260 900,410 1040,335" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="913" y="312" font-size="23" fill="#172b3a" text-anchor="start" font-weight="normal">+</text>
+<text x="913" y="371" font-size="23" fill="#172b3a" text-anchor="start" font-weight="normal">−</text>
+<text x="955" y="340" font-size="18" fill="#172b3a" text-anchor="middle" font-weight="normal">U1A</text>
+<text x="900" y="235" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">LM358P</text>
+<text x="810" y="285" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">3 IN1+</text>
+<text x="810" y="394" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2 IN1-</text>
+<text x="1060" y="308" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1 OUT1</text>
+<polyline class="wire" points="1040,335 1380,335"/>
+<polyline class="wire" points="1380,335 1392,335"/>
+<polyline class="wire" points="1498,335 1510,335"/>
+<rect x="1392" y="326" width="106" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1445.0" y="317" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R5  1 ohm</text>
+<text x="1386" y="362" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="1504" y="362" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="1510,335 1880,335"/>
+<circle cx="1880" cy="335" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1810" y="306" font-size="22" fill="#172b3a" text-anchor="start" font-weight="bold">J1.1  D</text>
+<text x="1780" y="370" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">DUT_D</text>
+<rect x="1370" y="135" width="380" height="135" rx="7" fill="#eaf4f3" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1390" y="167" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U2:S  INA226  0x44</text>
+<text x="1390" y="193" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">Other pins: sheet 2</text>
+<text x="1385" y="225" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">8 VBUS</text>
+<text x="1460" y="253" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10 IN+</text>
+<text x="1630" y="253" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">9 IN-</text>
+<polyline class="wire" points="1370,210 1310,210 1310,335"/>
+<circle cx="1310" cy="335" r="4" fill="#236b69"/>
+<polyline class="wire" points="1490,270 1490,290 1360,290 1360,335"/>
+<circle cx="1360" cy="335" r="4" fill="#236b69"/>
+<polyline class="wire" points="1670,270 1670,335"/>
+<circle cx="1670" cy="335" r="4" fill="#236b69"/>
+<polyline class="wire" points="1140,335 1140,500 1100,500"/>
+<circle cx="1140" cy="335" r="4" fill="#236b69"/>
+<text x="1160" y="375" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_DRV</text>
+<polyline class="wire" points="980,500 992,500"/>
+<polyline class="wire" points="1088,500 1100,500"/>
+<rect x="992" y="491" width="96" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1040.0" y="482" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R3  68k</text>
+<text x="986" y="527" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="1094" y="527" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="980,500 850,500 850,365 900,365"/>
+<circle cx="850" cy="500" r="4" fill="#236b69"/>
+<text x="735" y="491" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_FB</text>
+<polyline class="wire" points="850,500 850,540"/>
+<polyline class="wire" points="850,540 850,552"/>
+<polyline class="wire" points="850,598 850,610"/>
+<rect x="841" y="552" width="18" height="46" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="869" y="580.0" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">R4  10k</text>
+<text x="826" y="556" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="826" y="606" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<polyline class="wire" points="850,610 850,622"/>
+<polyline class="wire" points="835,622 865,622"/>
+<polyline class="wire" points="840,629 860,629"/>
+<polyline class="wire" points="845,636 855,636"/>
+<text x="70" y="500" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">10uF ceramic preferred; if polarized: pin 1 = +.</text>
+<text x="70" y="532" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Ideal Vdrain = VS + 6.8 x PWMavg.</text>
+<text x="70" y="564" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">RC = (1k || 6.8k) x 10uF = 8.72 ms nominal.</text>
+<text x="70" y="596" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R1 tolerance can place the zero-drive floor above/below VS.</text>
+<text x="1220" y="445" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS pin 8 and IN+ pin 10 are BEFORE the shunt.</text>
+<text x="1220" y="478" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">IN- pin 9 is on the DUT side. Use Kelvin sense wires.</text>
+<text x="1220" y="511" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VD = VBUS_D - VSH_D; subtract VS for VDS.</text>
+<text x="1220" y="544" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Remove the original R100 shunt; do not parallel it.</text>
+<text x="1220" y="577" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Current scale: 0.789 ohm; subtract open baseline.</text>
+<rect x="35" y="780" width="1930" height="535" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="55" y="812" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Gate drive and current / voltage sensing</text>
+<text x="65" y="880" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">A1 pin 27</text>
+<text x="65" y="908" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP21 / PWM_G</text>
+<text x="65" y="962" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_G</text>
+<polyline class="wire" points="65,990 200,990"/>
+<polyline class="wire" points="200,990 212,990"/>
+<polyline class="wire" points="288,990 300,990"/>
+<rect x="212" y="981" width="76" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="250.0" y="972" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R6  1k nominal</text>
+<text x="206" y="1017" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="294" y="1017" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="300,990 800,990 800,965 900,965"/>
+<circle cx="500" cy="990" r="4" fill="#236b69"/>
+<polyline class="wire" points="500,990 500,1025"/>
+<polyline class="wire" points="483,1025 517,1025"/>
+<polyline class="wire" points="483,1035 517,1035"/>
+<polyline class="wire" points="500,1035 500,1057"/>
+<polyline class="wire" points="500,1057 500,1069"/>
+<polyline class="wire" points="485,1069 515,1069"/>
+<polyline class="wire" points="490,1076 510,1076"/>
+<polyline class="wire" points="495,1083 505,1083"/>
+<text x="523" y="1036" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C3  10uF &gt;=10V</text>
+<text x="470" y="1013" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="470" y="1055" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="500" y="958" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_REF</text>
+<text x="65" y="1070" font-size="19" fill="#526674" text-anchor="start" font-weight="normal">100 kHz PWM; one RC pole</text>
+<polygon points="900,920 900,1070 1040,995" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="913" y="972" font-size="23" fill="#172b3a" text-anchor="start" font-weight="normal">+</text>
+<text x="913" y="1031" font-size="23" fill="#172b3a" text-anchor="start" font-weight="normal">−</text>
+<text x="955" y="1000" font-size="18" fill="#172b3a" text-anchor="middle" font-weight="normal">U1B</text>
+<text x="900" y="895" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">LM358P</text>
+<text x="810" y="945" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">5 IN2+</text>
+<text x="810" y="1054" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">6 IN2-</text>
+<text x="1060" y="968" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">7 OUT2</text>
+<polyline class="wire" points="1040,995 1380,995"/>
+<polyline class="wire" points="1380,995 1392,995"/>
+<polyline class="wire" points="1498,995 1510,995"/>
+<rect x="1392" y="986" width="106" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1445.0" y="977" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R10  680 ohm</text>
+<text x="1386" y="1022" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="1504" y="1022" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="1510,995 1880,995"/>
+<circle cx="1880" cy="995" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1810" y="966" font-size="22" fill="#172b3a" text-anchor="start" font-weight="bold">J1.2  G</text>
+<text x="1780" y="1030" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">DUT_G</text>
+<rect x="1370" y="795" width="380" height="135" rx="7" fill="#eaf4f3" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1390" y="827" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U3:S  INA226  0x41</text>
+<text x="1390" y="853" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">Other pins: sheet 2</text>
+<text x="1385" y="885" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">8 VBUS</text>
+<text x="1460" y="913" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10 IN+</text>
+<text x="1630" y="913" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">9 IN-</text>
+<polyline class="wire" points="1370,870 1310,870 1310,995"/>
+<circle cx="1310" cy="995" r="4" fill="#236b69"/>
+<polyline class="wire" points="1490,930 1490,950 1360,950 1360,995"/>
+<circle cx="1360" cy="995" r="4" fill="#236b69"/>
+<polyline class="wire" points="1670,930 1670,995"/>
+<circle cx="1670" cy="995" r="4" fill="#236b69"/>
+<polyline class="wire" points="1140,995 1140,1160 1100,1160"/>
+<circle cx="1140" cy="995" r="4" fill="#236b69"/>
+<text x="1160" y="1035" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_DRV</text>
+<polyline class="wire" points="980,1160 992,1160"/>
+<polyline class="wire" points="1088,1160 1100,1160"/>
+<rect x="992" y="1151" width="96" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="1040.0" y="1142" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R8  68k</text>
+<text x="986" y="1187" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
+<text x="1094" y="1187" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
+<polyline class="wire" points="980,1160 850,1160 850,1025 900,1025"/>
+<circle cx="850" cy="1160" r="4" fill="#236b69"/>
+<text x="735" y="1151" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_FB</text>
+<polyline class="wire" points="850,1160 850,1200"/>
+<polyline class="wire" points="850,1200 850,1212"/>
+<polyline class="wire" points="850,1258 850,1270"/>
+<rect x="841" y="1212" width="18" height="46" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="869" y="1240.0" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">R9  10k</text>
+<text x="826" y="1216" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="826" y="1266" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<polyline class="wire" points="850,1270 850,1282"/>
+<polyline class="wire" points="835,1282 865,1282"/>
+<polyline class="wire" points="840,1289 860,1289"/>
+<polyline class="wire" points="845,1296 855,1296"/>
+<text x="70" y="1160" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">10uF ceramic preferred; if polarized: pin 1 = +.</text>
+<text x="70" y="1192" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Vgate = 7.8 x average PWM voltage.</text>
+<text x="70" y="1224" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">RC = 10 ms; R6 unchanged, not remeasured.</text>
+<text x="70" y="1256" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VGS = Vgate - VS; zero PWM gives about -3.3 V.</text>
+<text x="1220" y="1105" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS pin 8 and IN+ pin 10 are BEFORE the shunt.</text>
+<text x="1220" y="1138" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">IN- pin 9 is on the DUT side. Use Kelvin sense wires.</text>
+<text x="1220" y="1171" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VG = VBUS_G - VSH_G; subtract VS for VGS.</text>
+<text x="1220" y="1204" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Remove the original R100 shunt; do not parallel it.</text>
+<text x="1220" y="1237" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Current scale: provisional 638 ohm; subtract baseline.</text>
+<text x="45" y="1340" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">INA226 numbers are IC pins, not breakout-header positions. J1 pins 1/2/3 = D/G/S are our fixture assignment, not a MOSFET package pinout.</text>
+<polyline class="wire" points="40,1354 1960,1354"/>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Recalibrate after hardware / supply changes</text>
+<text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 1 / 4</text>
+</svg>

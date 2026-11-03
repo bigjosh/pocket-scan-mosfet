@@ -1,0 +1,3 @@
+# Windows x64 wheel, pinned for the Pico's MicroPython v1.29.0 runtime.
+# Package post2 is the wrapper revision; compiler reports MicroPython v1.29.0.
+mpy-cross==1.29.0.post2 --hash=sha256:3d598813b017d9c33b21e2bf523b78e4886fbf751748ca34d77aec2a2629fdc6

@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1414" viewBox="0 0 2000 1414">
+<title>Full schematic - power, Pico header and INA226 logic</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect width="2000" height="1414" fill="#fff"/>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Full schematic - power, Pico header and INA226 logic</text>
+<text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Battery negative, LM358 V- and Pico GND are common. K1 switches the positive battery lead; it does not switch the DUT terminals.</text>
+<rect x="35" y="115" width="565" height="500" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="55" y="147" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">USB-powered Pico and source reference</text>
+<text x="65" y="210" font-size="23" fill="#172b3a" text-anchor="start" font-weight="bold">A1.36  3V3(OUT)</text>
+<polyline class="wire" points="65,245 545,245"/>
+<text x="65" y="280" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS -&gt; J1.3 S, R13.1</text>
+<text x="65" y="330" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Also feeds INA226 logic and K1 module.</text>
+<text x="65" y="362" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Source on pin 36 / 3V3: user confirmed.</text>
+<text x="65" y="394" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VS = nominal 3.3 V, measured relative to GND.</text>
+<text x="65" y="426" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Use measured VS for both VDS and VGS.</text>
+<text x="65" y="458" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">A1.39 VSYS: no scanner connection.</text>
+<text x="65" y="490" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">A1.40 VBUS: no scanner connection.</text>
+<text x="65" y="522" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">USB still powers the Pico / Plus UI normally.</text>
+<text x="65" y="554" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">No onboard ADC3 source readback is used.</text>
+<rect x="630" y="115" width="755" height="500" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="650" y="147" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Two series batteries and NO power contact</text>
+<polyline class="wire" points="715,240 715,269"/>
+<polyline class="wire" points="688,269 742,269"/>
+<polyline class="wire" points="701,285 729,285"/>
+<polyline class="wire" points="715,285 715,320"/>
+<text x="665" y="265" font-size="22" fill="#172b3a" text-anchor="start" font-weight="normal">+</text>
+<text x="665" y="301" font-size="22" fill="#172b3a" text-anchor="start" font-weight="normal">−</text>
+<text x="770" y="284" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">B2  9 V</text>
+<polyline class="wire" points="715,320 715,360"/>
+<text x="745" y="342" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">BAT_MID</text>
+<polyline class="wire" points="715,360 715,389"/>
+<polyline class="wire" points="688,389 742,389"/>
+<polyline class="wire" points="701,405 729,405"/>
+<polyline class="wire" points="715,405 715,440"/>
+<text x="665" y="385" font-size="22" fill="#172b3a" text-anchor="start" font-weight="normal">+</text>
+<text x="665" y="421" font-size="22" fill="#172b3a" text-anchor="start" font-weight="normal">−</text>
+<text x="770" y="404" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">B1  9 V</text>
+<polyline class="wire" points="715,440 715,452"/>
+<polyline class="wire" points="700,452 730,452"/>
+<polyline class="wire" points="705,459 725,459"/>
+<polyline class="wire" points="710,466 720,466"/>
+<polyline class="wire" points="715,240 715,220 950,220"/>
+<circle cx="950" cy="220" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<polyline class="wire" points="950,220 1040,180"/>
+<circle cx="1060" cy="220" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<polyline class="wire" points="1060,220 1340,220"/>
+<circle cx="1340" cy="220" r="5" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
+<text x="925" y="168" font-size="20" fill="#172b3a" text-anchor="start" font-weight="bold">K1 contact</text>
+<text x="920" y="250" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">COM</text>
+<text x="1045" y="250" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">NO</text>
+<text x="1160" y="195" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U1.8  V+</text>
+<text x="1120" y="278" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">LM_VPLUS</text>
+<text x="1150" y="320" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">U1.4 V- -&gt; GND</text>
+<text x="950" y="354" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">LM_VPLUS</text>
+<polyline class="wire" points="950,365 950,400"/>
+<polyline class="wire" points="933,400 967,400"/>
+<polyline class="wire" points="933,410 967,410"/>
+<polyline class="wire" points="950,410 950,432"/>
+<polyline class="wire" points="950,432 950,444"/>
+<polyline class="wire" points="935,444 965,444"/>
+<polyline class="wire" points="940,451 960,451"/>
+<polyline class="wire" points="945,458 955,458"/>
+<text x="973" y="411" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C5  100nF / 50V</text>
+<text x="920" y="388" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="920" y="430" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1180" y="394" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">LM_VPLUS</text>
+<polyline class="wire" points="1180,405 1180,440"/>
+<polyline class="wire" points="1163,440 1197,440"/>
+<polyline class="wire" points="1163,450 1197,450"/>
+<polyline class="wire" points="1180,450 1180,472"/>
+<polyline class="wire" points="1180,472 1180,484"/>
+<polyline class="wire" points="1165,484 1195,484"/>
+<polyline class="wire" points="1170,491 1190,491"/>
+<polyline class="wire" points="1175,498 1185,498"/>
+<text x="1203" y="451" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C6  10uF / 50V</text>
+<text x="1150" y="428" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1150" y="470" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1203" y="431" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">+</text>
+<text x="655" y="525" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">V+ is nominal 18 V above GND, not 18 V above VS.</text>
+<text x="655" y="555" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">C5 fitted at U1 pins 8/4; C6 fitting unconfirmed.</text>
+<text x="655" y="585" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Contact names are functions, not relay pin numbers.</text>
+<rect x="1420" y="115" width="545" height="500" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1440" y="147" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">K1 module: VCC and ACTIVATE tied high</text>
+<text x="1460" y="205" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<rect x="1550" y="230" width="350" height="200" rx="7" fill="#fff" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1570" y="262" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Relay module</text>
+<polyline class="wire" points="1490,220 1490,340 1550,340"/>
+<circle cx="1490" cy="290" r="4" fill="#236b69"/>
+<polyline class="wire" points="1490,290 1550,290"/>
+<text x="1570" y="297" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">VCC</text>
+<text x="1570" y="347" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">ACTIVATE / enable</text>
+<polyline class="wire" points="1490,390 1550,390"/>
+<polyline class="wire" points="1490,390 1490,402"/>
+<polyline class="wire" points="1475,402 1505,402"/>
+<polyline class="wire" points="1480,409 1500,409"/>
+<polyline class="wire" points="1485,416 1495,416"/>
+<text x="1570" y="397" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GND</text>
+<text x="1445" y="475" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Module VCC and enable both use Pico 3V3.</text>
+<text x="1445" y="506" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Internal driver / coil suppression: unverified.</text>
+<text x="1445" y="537" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Use module labels, not raw relay pin numbers.</text>
+<text x="1445" y="568" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">No GPIO control; relay stays on at soft reset.</text>
+<rect x="40" y="675" width="640" height="505" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="60" y="707" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">A1  Pico 2 W - physical header numbers</text>
+<text x="65" y="742" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">40  VBUS</text>
+<polyline class="wire" points="680,735 760,735"/>
+<text x="775" y="741" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">Unused</text>
+<text x="65" y="795" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">39  VSYS</text>
+<polyline class="wire" points="680,788 760,788"/>
+<text x="775" y="794" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">Unused</text>
+<text x="65" y="848" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">36  3V3(OUT)</text>
+<polyline class="wire" points="680,841 760,841"/>
+<text x="775" y="847" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<text x="65" y="901" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">38  GND</text>
+<polyline class="wire" points="680,894 760,894"/>
+<text x="775" y="900" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">GND</text>
+<text x="65" y="954" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">26  GP20 / PWM_D</text>
+<polyline class="wire" points="680,947 760,947"/>
+<text x="775" y="953" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_D</text>
+<text x="65" y="1007" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">27  GP21 / PWM_G</text>
+<polyline class="wire" points="680,1000 760,1000"/>
+<text x="775" y="1006" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_G</text>
+<text x="65" y="1060" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">24  GP18 / SDA1</text>
+<polyline class="wire" points="680,1053 760,1053"/>
+<text x="775" y="1059" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">I2C_SDA</text>
+<text x="65" y="1113" font-size="21" fill="#172b3a" text-anchor="start" font-weight="normal">25  GP19 / SCL1</text>
+<polyline class="wire" points="680,1106 760,1106"/>
+<text x="775" y="1112" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">I2C_SCL</text>
+<text x="65" y="1160" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">USB powers board; other kit wiring remains in place.</text>
+<rect x="1070" y="675" width="320" height="505" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1090" y="707" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U2:L  INA226 logic</text>
+<polyline class="wire" points="1000,745 1070,745"/>
+<text x="1086" y="752" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">6  VS / VCC</text>
+<text x="980" y="751" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1000,804 1070,804"/>
+<text x="1086" y="811" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">7  GND</text>
+<text x="980" y="810" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">GND</text>
+<polyline class="wire" points="1000,863 1070,863"/>
+<text x="1086" y="870" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">4  SDA</text>
+<text x="980" y="869" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">I2C_SDA</text>
+<polyline class="wire" points="1000,922 1070,922"/>
+<text x="1086" y="929" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">5  SCL</text>
+<text x="980" y="928" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">I2C_SCL</text>
+<polyline class="wire" points="1000,981 1070,981"/>
+<text x="1086" y="988" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">1  A1</text>
+<text x="980" y="987" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1000,1040 1070,1040"/>
+<text x="1086" y="1047" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">2  A0</text>
+<text x="980" y="1046" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">GND</text>
+<polyline class="wire" points="1000,1099 1070,1099"/>
+<text x="1086" y="1106" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">3  ALERT</text>
+<polyline class="wire" points="990,1091 1006,1107"/>
+<polyline class="wire" points="990,1107 1006,1091"/>
+<text x="978" y="1105" font-size="17" fill="#172b3a" text-anchor="end" font-weight="normal">NC</text>
+<text x="1086" y="1160" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">Sense pins 8/9/10: sheet 1</text>
+<text x="1150" y="1230" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1150,1240 1150,1275"/>
+<polyline class="wire" points="1133,1275 1167,1275"/>
+<polyline class="wire" points="1133,1285 1167,1285"/>
+<polyline class="wire" points="1150,1285 1150,1307"/>
+<polyline class="wire" points="1150,1307 1150,1319"/>
+<polyline class="wire" points="1135,1319 1165,1319"/>
+<polyline class="wire" points="1140,1326 1160,1326"/>
+<polyline class="wire" points="1145,1333 1155,1333"/>
+<text x="1173" y="1286" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C7  100nF &gt;=10V</text>
+<text x="1120" y="1263" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1120" y="1305" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<rect x="1640" y="675" width="320" height="505" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1660" y="707" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U3:L  INA226 logic</text>
+<polyline class="wire" points="1570,745 1640,745"/>
+<text x="1656" y="752" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">6  VS / VCC</text>
+<text x="1550" y="751" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1570,804 1640,804"/>
+<text x="1656" y="811" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">7  GND</text>
+<text x="1550" y="810" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">GND</text>
+<polyline class="wire" points="1570,863 1640,863"/>
+<text x="1656" y="870" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">4  SDA</text>
+<text x="1550" y="869" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">I2C_SDA</text>
+<polyline class="wire" points="1570,922 1640,922"/>
+<text x="1656" y="929" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">5  SCL</text>
+<text x="1550" y="928" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">I2C_SCL</text>
+<polyline class="wire" points="1570,981 1640,981"/>
+<text x="1656" y="988" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">1  A1</text>
+<text x="1550" y="987" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">GND</text>
+<polyline class="wire" points="1570,1040 1640,1040"/>
+<text x="1656" y="1047" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">2  A0</text>
+<text x="1550" y="1046" font-size="20" fill="#236b69" text-anchor="end" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1570,1099 1640,1099"/>
+<text x="1656" y="1106" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">3  ALERT</text>
+<polyline class="wire" points="1560,1091 1576,1107"/>
+<polyline class="wire" points="1560,1107 1576,1091"/>
+<text x="1548" y="1105" font-size="17" fill="#172b3a" text-anchor="end" font-weight="normal">NC</text>
+<text x="1656" y="1160" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">Sense pins 8/9/10: sheet 1</text>
+<text x="1720" y="1230" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<polyline class="wire" points="1720,1240 1720,1275"/>
+<polyline class="wire" points="1703,1275 1737,1275"/>
+<polyline class="wire" points="1703,1285 1737,1285"/>
+<polyline class="wire" points="1720,1285 1720,1307"/>
+<polyline class="wire" points="1720,1307 1720,1319"/>
+<polyline class="wire" points="1705,1319 1735,1319"/>
+<polyline class="wire" points="1710,1326 1730,1326"/>
+<polyline class="wire" points="1715,1333 1725,1333"/>
+<text x="1743" y="1286" font-size="17" fill="#172b3a" text-anchor="start" font-weight="normal">C8  100nF &gt;=10V</text>
+<text x="1690" y="1263" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1690" y="1305" font-size="15" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="55" y="1234" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Breakout SDA/SCL pull-ups remain connected to +3V3_VS; values unverified.</text>
+<text x="55" y="1267" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">3V3 is a regulated supply, not a precision reference. Measure under load.</text>
+<text x="55" y="1300" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Retain 5 mA drain limit; verify the 3V3 load absorbs returned source current.</text>
+<polyline class="wire" points="40,1354 1960,1354"/>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Recalibrate after hardware / supply changes</text>
+<text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 2 / 4</text>
+</svg>

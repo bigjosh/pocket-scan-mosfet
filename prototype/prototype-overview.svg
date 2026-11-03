@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040">
+<title>Pocket MOSFET scanner - prototype G</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect width="1600" height="1040" fill="#fff"/>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Pocket MOSFET scanner - prototype G</text>
+<text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">3.3 V source reference | relay-switched 2 x 9 V battery supply | one LM358P | two INA226 sensors</text>
+<rect x="40" y="120" width="380" height="620" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="60" y="152" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Pico 2 W + Plus UI</text>
+<text x="65" y="195" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP20 / pin 26: drain PWM</text>
+<text x="65" y="246" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP21 / pin 27: gate PWM</text>
+<text x="65" y="297" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP18 / pin 24: I2C1 SDA</text>
+<text x="65" y="348" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GP19 / pin 25: I2C1 SCL</text>
+<text x="65" y="399" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">3V3 / pin 36: source reference</text>
+<text x="65" y="450" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">3V3: INA logic + K1 VCC/ACTIVATE</text>
+<text x="65" y="501" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">GND / pin 38: common ground</text>
+<text x="65" y="552" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS / VSYS: no analog jumper</text>
+<text x="65" y="603" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">No automatic source readback</text>
+<rect x="490" y="120" width="610" height="180" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="510" y="152" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Battery analog supply - ground referenced</text>
+<text x="515" y="184" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Battery stack + -&gt; K1 COM / NO -&gt; U1 pin 8 (V+)</text>
+<text x="515" y="213" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Battery stack - -&gt; GND; U1 pin 4 (V-) -&gt; GND</text>
+<text x="515" y="242" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">2 x 9 V = nominal 18 V above GND, not above VS</text>
+<text x="515" y="271" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">K1 module: VCC + ACTIVATE -&gt; 3V3; GND -&gt; GND</text>
+<rect x="490" y="360" width="610" height="150" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="510" y="392" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Drain drive + sense</text>
+<text x="515" y="424" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">PWM + 3.3 V reference -&gt; U1A -&gt; nominal 1 ohm -&gt; D</text>
+<text x="515" y="457" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">INA_D: 0x44; ideal VD = VS + 6.8 x PWMavg</text>
+<rect x="490" y="570" width="610" height="150" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="510" y="602" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Gate drive + sense</text>
+<text x="515" y="634" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">PWM filter -&gt; U1B -&gt; 680 ohm nominal -&gt; G</text>
+<text x="515" y="667" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">INA_G: 0x41; ideal output = 7.8 x PWM average</text>
+<rect x="1250" y="340" width="305" height="430" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1270" y="372" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">DUT fixture</text>
+<text x="1275" y="410" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">VDS = VD - VS</text>
+<text x="1275" y="445" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">VGS = VG - VS</text>
+<text x="1275" y="497" font-size="24" fill="#172b3a" text-anchor="start" font-weight="bold">D</text>
+<text x="1275" y="672" font-size="24" fill="#172b3a" text-anchor="start" font-weight="bold">G</text>
+<text x="1275" y="757" font-size="24" fill="#172b3a" text-anchor="start" font-weight="bold">S</text>
+<polyline class="wire" points="1100,470 1175,470 1175,490 1250,490"/>
+<polyline class="wire" points="1100,665 1250,665"/>
+<polyline class="wire" points="225,740 225,800 1180,800 1180,750 1250,750"/>
+<text x="260" y="783" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">3V3 / pin 36 -&gt; DUT source (VS) and drain R13 reference</text>
+<rect x="40" y="845" width="1515" height="130" rx="7" fill="#fff5e9" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="65" y="880" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R1 = 1k 5% fitted. Ideal zero-PWM drain = VS; actual floors require matching calibration.</text>
+<text x="65" y="912" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Relay stays energized through soft reset. It switches the battery supply, not the DUT drain or gate connections.</text>
+<text x="65" y="944" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">K1 module current and suppression are unverified. Recalibrate after hardware / supply changes.</text>
+<text x="40" y="1018" font-size="16" fill="#526674" text-anchor="start" font-weight="normal">Revision G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Calibration / present limits: firmware/README.md</text>
+</svg>

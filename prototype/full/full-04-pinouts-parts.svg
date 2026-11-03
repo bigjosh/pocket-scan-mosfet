@@ -1,0 +1,220 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1414" viewBox="0 0 2000 1414">
+<title>Pin orientation, parts and first power-up</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect width="2000" height="1414" fill="#fff"/>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Pin orientation, parts and first power-up</text>
+<text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Top views: look at the component face, not its solder side. Verify the actual board labels and DUT package before connecting.</text>
+<rect x="35" y="115" width="630" height="735" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="55" y="147" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">A1 Pico 2 W - header top view, USB at top</text>
+<rect x="240" y="167" width="220" height="640" rx="7" fill="#fff" stroke="#cbd7db" stroke-width="1.3"/>
+<rect x="290" y="159" width="120" height="42" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="310" y="191" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">USB</text>
+<text x="220" y="234" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 1  GP0</text>
+<polyline class="wire" points="225,229 240,229"/>
+<text x="220" y="262" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 2  GP1</text>
+<polyline class="wire" points="225,257 240,257"/>
+<text x="220" y="290" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 3  GND</text>
+<polyline class="wire" points="225,285 240,285"/>
+<text x="220" y="318" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 4  GP2</text>
+<polyline class="wire" points="225,313 240,313"/>
+<text x="220" y="346" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 5  GP3</text>
+<polyline class="wire" points="225,341 240,341"/>
+<text x="220" y="374" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 6  GP4</text>
+<polyline class="wire" points="225,369 240,369"/>
+<text x="220" y="402" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 7  GP5</text>
+<polyline class="wire" points="225,397 240,397"/>
+<text x="220" y="430" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 8  GND</text>
+<polyline class="wire" points="225,425 240,425"/>
+<text x="220" y="458" font-size="18" fill="#526674" text-anchor="end" font-weight="normal"> 9  GP6</text>
+<polyline class="wire" points="225,453 240,453"/>
+<text x="220" y="486" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">10  GP7</text>
+<polyline class="wire" points="225,481 240,481"/>
+<text x="220" y="514" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">11  GP8</text>
+<polyline class="wire" points="225,509 240,509"/>
+<text x="220" y="542" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">12  GP9</text>
+<polyline class="wire" points="225,537 240,537"/>
+<text x="220" y="570" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">13  GND</text>
+<polyline class="wire" points="225,565 240,565"/>
+<text x="220" y="598" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">14  GP10</text>
+<polyline class="wire" points="225,593 240,593"/>
+<text x="220" y="626" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">15  GP11</text>
+<polyline class="wire" points="225,621 240,621"/>
+<text x="220" y="654" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">16  GP12</text>
+<polyline class="wire" points="225,649 240,649"/>
+<text x="220" y="682" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">17  GP13</text>
+<polyline class="wire" points="225,677 240,677"/>
+<text x="220" y="710" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">18  GND</text>
+<polyline class="wire" points="225,705 240,705"/>
+<text x="220" y="738" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">19  GP14</text>
+<polyline class="wire" points="225,733 240,733"/>
+<text x="220" y="766" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">20  GP15</text>
+<polyline class="wire" points="225,761 240,761"/>
+<text x="480" y="234" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">40  VBUS</text>
+<polyline class="wire" points="460,229 475,229"/>
+<text x="480" y="262" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">39  VSYS</text>
+<polyline class="wire" points="460,257 475,257"/>
+<text x="480" y="290" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">38  GND</text>
+<polyline class="wire" points="460,285 475,285"/>
+<text x="480" y="318" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">37  3V3_EN</text>
+<polyline class="wire" points="460,313 475,313"/>
+<text x="480" y="346" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">36  3V3(OUT)</text>
+<polyline class="wire" points="460,341 475,341"/>
+<text x="480" y="374" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">35  ADC_VREF</text>
+<polyline class="wire" points="460,369 475,369"/>
+<text x="480" y="402" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">34  GP28</text>
+<polyline class="wire" points="460,397 475,397"/>
+<text x="480" y="430" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">33  AGND</text>
+<polyline class="wire" points="460,425 475,425"/>
+<text x="480" y="458" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">32  GP27</text>
+<polyline class="wire" points="460,453 475,453"/>
+<text x="480" y="486" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">31  GP26</text>
+<polyline class="wire" points="460,481 475,481"/>
+<text x="480" y="514" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">30  RUN</text>
+<polyline class="wire" points="460,509 475,509"/>
+<text x="480" y="542" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">29  GP22</text>
+<polyline class="wire" points="460,537 475,537"/>
+<text x="480" y="570" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">28  GND</text>
+<polyline class="wire" points="460,565 475,565"/>
+<text x="480" y="598" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">27  GP21</text>
+<polyline class="wire" points="460,593 475,593"/>
+<text x="480" y="626" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">26  GP20</text>
+<polyline class="wire" points="460,621 475,621"/>
+<text x="480" y="654" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">25  GP19</text>
+<polyline class="wire" points="460,649 475,649"/>
+<text x="480" y="682" font-size="19" fill="#172b3a" text-anchor="start" font-weight="bold">24  GP18</text>
+<polyline class="wire" points="460,677 475,677"/>
+<text x="480" y="710" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">23  GND</text>
+<polyline class="wire" points="460,705 475,705"/>
+<text x="480" y="738" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">22  GP17</text>
+<polyline class="wire" points="460,733 475,733"/>
+<text x="480" y="766" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">21  GP16</text>
+<polyline class="wire" points="460,761 475,761"/>
+<text x="65" y="830" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Bold pins are the six scanner connections.</text>
+<rect x="740" y="145" width="390" height="240" rx="7" fill="#fff" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="760" y="177" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U1 LM358P / PDIP-8</text>
+<path d="M 913.0 145 Q 935.0 180 957.0 145" fill="none" stroke="#236b69" stroke-width="2.5"/>
+<polyline class="wire" points="715,215 740,215"/>
+<text x="752" y="221" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">1 OUT1</text>
+<polyline class="wire" points="715,260 740,260"/>
+<text x="752" y="266" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">2 IN1-</text>
+<polyline class="wire" points="715,305 740,305"/>
+<text x="752" y="311" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">3 IN1+</text>
+<polyline class="wire" points="715,350 740,350"/>
+<text x="752" y="356" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">4 V-</text>
+<polyline class="wire" points="1130,215 1155,215"/>
+<text x="1118" y="221" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">V+ 8</text>
+<polyline class="wire" points="1130,260 1155,260"/>
+<text x="1118" y="266" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">OUT2 7</text>
+<polyline class="wire" points="1130,305 1155,305"/>
+<text x="1118" y="311" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">IN2- 6</text>
+<polyline class="wire" points="1130,350 1155,350"/>
+<text x="1118" y="356" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">IN2+ 5</text>
+<circle cx="748" cy="196" r="4" fill="#236b69"/>
+<rect x="740" y="445" width="390" height="285" rx="7" fill="#fff" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="760" y="477" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U2 / U3 INA226 IC</text>
+<path d="M 913.0 445 Q 935.0 480 957.0 445" fill="none" stroke="#236b69" stroke-width="2.5"/>
+<polyline class="wire" points="715,515 740,515"/>
+<text x="752" y="521" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">1 A1</text>
+<polyline class="wire" points="715,560 740,560"/>
+<text x="752" y="566" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">2 A0</text>
+<polyline class="wire" points="715,605 740,605"/>
+<text x="752" y="611" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">3 ALERT</text>
+<polyline class="wire" points="715,650 740,650"/>
+<text x="752" y="656" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">4 SDA</text>
+<polyline class="wire" points="715,695 740,695"/>
+<text x="752" y="701" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">5 SCL</text>
+<polyline class="wire" points="1130,515 1155,515"/>
+<text x="1118" y="521" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">IN+ 10</text>
+<polyline class="wire" points="1130,560 1155,560"/>
+<text x="1118" y="566" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">IN- 9</text>
+<polyline class="wire" points="1130,605 1155,605"/>
+<text x="1118" y="611" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">VBUS 8</text>
+<polyline class="wire" points="1130,650 1155,650"/>
+<text x="1118" y="656" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">GND 7</text>
+<polyline class="wire" points="1130,695 1155,695"/>
+<text x="1118" y="701" font-size="19" fill="#172b3a" text-anchor="end" font-weight="normal">VS 6</text>
+<circle cx="748" cy="496" r="4" fill="#236b69"/>
+<text x="715" y="782" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">INA226: DGS / VSSOP-10 chip numbering.</text>
+<text x="715" y="810" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Breakout headers can have a different order.</text>
+<rect x="1190" y="115" width="775" height="735" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1210" y="147" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Parts to assemble (module parts may already exist)</text>
+<text x="1215" y="185" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">A1</text>
+<text x="1430" y="185" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="185" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Pico 2 W in Plus kit</text>
+<text x="1215" y="222" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">U1</text>
+<text x="1430" y="222" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="222" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">LM358P, PDIP-8</text>
+<text x="1215" y="259" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">U2, U3</text>
+<text x="1430" y="259" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1520" y="259" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">INA226 breakout boards, 3.3 V logic</text>
+<text x="1215" y="296" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R1</text>
+<text x="1430" y="296" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="296" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1k 5% fitted drain filter</text>
+<text x="1215" y="333" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R6</text>
+<text x="1430" y="333" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="333" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1k nominal gate filter; unchanged</text>
+<text x="1215" y="370" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R3, R8</text>
+<text x="1430" y="370" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1520" y="370" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">68k nominal feedback</text>
+<text x="1215" y="407" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R4, R9</text>
+<text x="1430" y="407" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1520" y="407" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10k nominal to GND</text>
+<text x="1215" y="444" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R13</text>
+<text x="1430" y="444" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="444" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">6.8k nominal, 3V3 to IN1+</text>
+<text x="1215" y="481" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R5</text>
+<text x="1430" y="481" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="481" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1 ohm nominal drain shunt</text>
+<text x="1215" y="518" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">R10</text>
+<text x="1430" y="518" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="518" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">680 ohm nominal gate shunt</text>
+<text x="1215" y="555" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">C1, C3</text>
+<text x="1430" y="555" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1520" y="555" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10uF &gt;=10 V; ceramic preferred</text>
+<text x="1215" y="592" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">C5</text>
+<text x="1430" y="592" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="592" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">100nF / 50V, fitted</text>
+<text x="1215" y="629" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">C6</text>
+<text x="1430" y="629" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="629" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10uF / 50V; fitting unconfirmed</text>
+<text x="1215" y="666" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">C7, C8</text>
+<text x="1430" y="666" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">0 or 2</text>
+<text x="1520" y="666" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">100nF &gt;=10 V; check board bypass</text>
+<text x="1215" y="703" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">J1</text>
+<text x="1430" y="703" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="703" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Removable fixture: 1=D, 2=G, 3=S</text>
+<text x="1215" y="740" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">B1, B2</text>
+<text x="1430" y="740" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">2</text>
+<text x="1520" y="740" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">9 V batteries, series pack</text>
+<text x="1215" y="777" font-size="18" fill="#172b3a" text-anchor="start" font-weight="bold">K1</text>
+<text x="1430" y="777" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">1</text>
+<text x="1520" y="777" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Relay module B0F3TM3RZ6</text>
+<rect x="35" y="885" width="940" height="425" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="55" y="917" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Before power / while the DUT is disconnected</text>
+<text x="60" y="947" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">1. Keep DUT / MOSFET unplugged; verify ground and capacitor polarity.</text>
+<text x="60" y="983" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">2. Confirm source -&gt; Pico pin 36 / 3V3, not VSYS or VBUS.</text>
+<text x="60" y="1019" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">3. Confirm both VBUS pins measure the driver side of their shunts.</text>
+<text x="60" y="1055" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">4. K1 VCC + ACTIVATE -&gt; 3V3; GND -&gt; GND. Verify module internals.</text>
+<text x="60" y="1091" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">5. Battery - -&gt; GND; battery + -&gt; K1 COM; K1 NO -&gt; LM358 pin 8.</text>
+<text x="60" y="1127" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">6. Measure 3V3 and V+; enter actual VS and driver rail in Settings.</text>
+<text x="60" y="1163" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">7. Check unloaded outputs against the current calibration; floors vary.</text>
+<text x="60" y="1199" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">8. Recalibrate after wiring / supply changes; old 5 V maps are invalid.</text>
+<text x="60" y="1235" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">9. Scope-check startup, soft reset, shutdown and ripple before DUT use.</text>
+<rect x="1010" y="885" width="955" height="425" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
+<text x="1030" y="917" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Board-specific checks and source references</text>
+<text x="1035" y="947" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">INA226 numbers are IC pins; identify headers by labels / continuity.</text>
+<text x="1035" y="977" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">J1 fixture: 1=D, 2=G, 3=S. This is NOT the MOSFET package order.</text>
+<text x="1035" y="1007" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">onsemi 2N7000G: flat marked face toward you, leads pointing down:</text>
+<text x="1035" y="1037" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">left to right = 1 Source, 2 Gate, 3 Drain (S/G/D).</text>
+<text x="1035" y="1067" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Wire J1.1 -&gt; DUT pin 3; J1.2 -&gt; pin 2; J1.3 -&gt; pin 1.</text>
+<text x="1035" y="1097" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">onsemi datasheet, pages 1 and 4 (Mouser mirror):</text>
+<text x="1035" y="1127" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">mouser.com/datasheet/2/308/2N7000-D-33553.pdf</text>
+<text x="1035" y="1157" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">TI LM358: ti.com/lit/gpn/lm358 (pin table, PDIP top view)</text>
+<text x="1035" y="1187" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">TI INA226: ti.com/lit/ds/symlink/ina226.pdf (DGS pin table)</text>
+<text x="1035" y="1217" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Pico 2 W: datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf</text>
+<text x="1035" y="1247" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">K1 is a battery-supply switch, not a software fault/DUT isolation relay.</text>
+<text x="1035" y="1277" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Recorded calibration / limits: firmware/README.md and prototype/README.md.</text>
+<polyline class="wire" points="40,1354 1960,1354"/>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Recalibrate after hardware / supply changes</text>
+<text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 4 / 4</text>
+</svg>

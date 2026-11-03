@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1414" viewBox="0 0 2000 1414">
+<title>Connection list - every external scanner net</title>
+<style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect width="2000" height="1414" fill="#fff"/>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Connection list - every external scanner net</text>
+<text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Each row is one electrical node: join ALL listed endpoints. This table is generated from the checked component/pin net list.</text>
+<text x="55" y="133" font-size="20" fill="#172b3a" text-anchor="start" font-weight="bold">NET</text>
+<text x="325" y="133" font-size="20" fill="#172b3a" text-anchor="start" font-weight="bold">CONNECTIONS - reference.pin (pin name)</text>
+<rect x="40" y="158" width="1920" height="76" fill="#f5f8f8"/>
+<text x="55" y="187" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">GND</text>
+<text x="325" y="187" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.38 (GND);  U1.4 (V-);  U2.2 (A0);  U2.7 (GND);  U3.1 (A1);  U3.7 (GND);  R4.2;  R9.2;  C1.2;  C3.2;  C5.2;  C6.2;  C7.2;  C8.2;  B1.-</text>
+<text x="325" y="213" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">(negative);  K1.GND (module ground)</text>
+<text x="55" y="263" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">+3V3_VS</text>
+<text x="325" y="263" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.36 (3V3(OUT));  J1.3 (S);  R13.1;  U2.1 (A1);  U2.6 (VS (logic supply));  U3.6 (VS (logic supply));  U3.2 (A0);  C7.1;  C8.1;  K1.VCC</text>
+<text x="325" y="289" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">(module supply);  K1.ACTIVATE (module enable input)</text>
+<rect x="40" y="310" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="339" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">BAT_MID</text>
+<text x="325" y="339" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">B1.+ (positive);  B2.- (negative)</text>
+<text x="55" y="389" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">BAT_18_RAW</text>
+<text x="325" y="389" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">B2.+ (positive);  K1.COM (used contact common)</text>
+<rect x="40" y="410" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="439" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">LM_VPLUS</text>
+<text x="325" y="439" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">K1.NO (used normally open contact);  U1.8 (V+);  C5.1;  C6.1</text>
+<text x="55" y="489" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_D</text>
+<text x="325" y="489" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.26 (GP20 / PWM_D);  R1.1</text>
+<rect x="40" y="510" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="539" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_REF</text>
+<text x="325" y="539" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R1.2;  C1.1;  U1.3 (IN1+);  R13.2</text>
+<text x="55" y="589" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_FB</text>
+<text x="325" y="589" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">U1.2 (IN1-);  R3.1;  R4.1</text>
+<rect x="40" y="610" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="639" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">D_DRV</text>
+<text x="325" y="639" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">U1.1 (OUT1);  R3.2;  R5.1;  U2.8 (VBUS);  U2.10 (IN+)</text>
+<text x="55" y="689" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">DUT_D</text>
+<text x="325" y="689" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R5.2;  U2.9 (IN-);  J1.1 (D)</text>
+<rect x="40" y="710" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="739" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">PWM_G</text>
+<text x="325" y="739" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.27 (GP21 / PWM_G);  R6.1</text>
+<text x="55" y="789" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_REF</text>
+<text x="325" y="789" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R6.2;  C3.1;  U1.5 (IN2+)</text>
+<rect x="40" y="810" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="839" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_FB</text>
+<text x="325" y="839" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">U1.6 (IN2-);  R8.1;  R9.1</text>
+<text x="55" y="889" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">G_DRV</text>
+<text x="325" y="889" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">U1.7 (OUT2);  R8.2;  R10.1;  U3.8 (VBUS);  U3.10 (IN+)</text>
+<rect x="40" y="910" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="939" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">DUT_G</text>
+<text x="325" y="939" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R10.2;  U3.9 (IN-);  J1.2 (G)</text>
+<text x="55" y="989" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">I2C_SDA</text>
+<text x="325" y="989" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.24 (GP18 / I2C1 SDA);  U2.4 (SDA);  U3.4 (SDA)</text>
+<rect x="40" y="1010" width="1920" height="50" fill="#f5f8f8"/>
+<text x="55" y="1039" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">I2C_SCL</text>
+<text x="325" y="1039" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">A1.25 (GP19 / I2C1 SCL);  U2.5 (SCL);  U3.5 (SCL)</text>
+<text x="55" y="1092" font-size="20" fill="#172b3a" text-anchor="start" font-weight="normal">NC: U2.3 (ALERT), U3.3 (ALERT). Leave open; do not connect to either supply.</text>
+<text x="55" y="1133" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Onboard I2C pull-ups connect SDA/SCL to +3V3_VS; external R11/R12 are omitted. Values are unverified.</text>
+<text x="55" y="1163" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">C7/C8 may already be fitted on the INA226 modules. Ensure a 100 nF bypass exists at each IC supply.</text>
+<text x="55" y="1193" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">C1/C3: ceramic preferred; if polarized, terminal 1 = + and terminal 2 = -. Other nonpolar terminal IDs are arbitrary.</text>
+<text x="55" y="1223" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">All U2/U3 numbers are IC pins. Module-header locations require the exact board or continuity tracing.</text>
+<text x="55" y="1253" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">R13 adds the 3.3 V reference to drain IN1+ only. Source J1.3 uses the same rail; connection confirmed by user.</text>
+<text x="55" y="1283" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">K1 VCC and ACTIVATE both join 3V3; GND joins ground. Labels are functions, not header positions. Leave unused contacts open.</text>
+<polyline class="wire" points="40,1354 1960,1354"/>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Recalibrate after hardware / supply changes</text>
+<text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 3 / 4</text>
+</svg>
