@@ -1,5 +1,7 @@
 # Pocket MOSFET scanner
 
+[https://youtube.com/shorts/NMgNdhcEQCA?is=Oy0in90gEM06KxaR](video)
+
 A MicroPython MOSFET curve tracer using a **Raspberry Pi Pico 2 W**, two
 **INA226** sensors, and **LM358P** voltage drivers. It sweeps drain voltage
 for each gate voltage, plots measured curves locally, and uploads each scan
