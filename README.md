@@ -2,10 +2,25 @@
 
 [video](https://youtube.com/shorts/NMgNdhcEQCA?is=Oy0in90gEM06KxaR)
 
-A MicroPython MOSFET curve tracer using a **Raspberry Pi Pico 2 W**, two
-**INA226** sensors, and **LM358P** voltage drivers. It sweeps drain voltage
+A pocket-sized MOSFET curve tracer using a sweeps drain voltage
 for each gate voltage, plots measured curves locally, and uploads each scan
-to a new Google Sheets tab. This is a breadboard prototype.
+to a new Google Sheets tab.
+
+Using 2x9V batteries it can cover drain and gate voltages -3V to +15V relative to source. 
+
+Logs both the commanded and actual measured voltages so small inacuracies in the voltage
+generation don't matter. 
+
+Critically it measures gate leakage down to sub 1 microamp because if your gate is leaking then 
+nothing else really counts.
+
+Every part used was available on Amazon next day and you can build it with no soldering if you want. 
+I only soldered some parts to clean up the wire mess.
+
+IMPORTANT: Do note that the INA226 breakouts that I got from amazon had the old crappy version of the chip that 
+leaks about 10uA on the voltage sampling pins, which makes the gate current sampling more complicated. It would
+be much better to find the new version of this chip so I ordered a bunch of other similar modules and will report back
+what I find. 
 
 ## Direct measurement
 
