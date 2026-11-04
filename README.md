@@ -91,6 +91,12 @@ See the [hardware guide](prototype/README.md) for schematics and pin tables.
 **Fixture D/G/S numbers are not transistor lead numbers:** the onsemi 2N7000G
 is **Source–Gate–Drain** with its flat face toward you and leads down.
 
+## Assembly 
+
+<img width="4080" height="3064" alt="2026-11-02 18 57 43" src="https://github.com/user-attachments/assets/1dd7014c-decb-4019-9cfb-ec1516889158" />
+
+I dead-bugged the filtering caps directly onto the LM386, and made a couple of headers with a caps and resistors to save space. I didn't have any 9 volt battery clips so I used foam to compress wires onto the terminals and wrapped generously with electrical tape. Case is 3D printed with 1" clearance for the parts inside. 
+
 ## Repository and development
 
 | Path | Purpose |
