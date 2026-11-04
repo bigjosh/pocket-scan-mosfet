@@ -1,5 +1,7 @@
 # Pocket MOSFET scanner
 
+<img width="560" height="467" alt="image" src="https://github.com/user-attachments/assets/7a2c68f0-2fdf-4598-a3fa-dfca65b3da9b" />
+
 [video](https://youtube.com/shorts/NMgNdhcEQCA?is=Oy0in90gEM06KxaR)
 
 A pocket-sized MOSFET curve tracer using a sweeps drain voltage
