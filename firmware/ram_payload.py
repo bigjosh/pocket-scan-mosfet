@@ -116,10 +116,17 @@ def _validate_current_correction(value):
     The header is serialized immediately before acquisition, so callers cannot
     later mutate the recorded correction. No baseline file is opened here.
     """
-    if (not isinstance(value, dict) or len(value) != 5 or
-            type(value.get("version")) is not int or value["version"] != 1 or
+    if (not isinstance(value, dict) or
+            type(value.get("version")) is not int or value["version"] not in (1, 2) or
             value.get("lookup") != "linear_endpoint_hold"):
         raise ValueError("Invalid current correction metadata")
+    # Version 1 describes both-current correction in older scan payloads.
+    # Version 2 explicitly records drain-only correction; gate samples and its
+    # zero anchor remain in the baseline without altering recorded gate current.
+    version = value["version"]
+    if (len(value) != (5 if version == 1 else 6) or
+            (version == 2 and value.get("applied_to") != "drain")):
+        raise ValueError("Invalid current correction scope")
     digest = value.get("sha256")
     if (not isinstance(digest, str) or len(digest) != 64 or
             any(character not in "0123456789abcdefABCDEF" for character in digest)):
@@ -129,8 +136,9 @@ def _validate_current_correction(value):
         if (not isinstance(channel, dict) or len(channel) != 5 or
                 type(channel.get("zero_valid")) is not bool):
             raise ValueError("Invalid current correction channel")
-        for key, low, high in (("min_bus_uv", 0, 40958750),
-                               ("max_bus_uv", 0, 40958750),
+        max_bus_uv = 40958750 if role == "drain" else 102399805
+        for key, low, high in (("min_bus_uv", 0, max_bus_uv),
+                               ("max_bus_uv", 0, max_bus_uv),
                                ("zero_duty_u16", 0, 65535),
                                ("zero_residual_uv", -42000000, 42000000)):
             number = channel.get(key)
@@ -178,8 +186,11 @@ def _validate_fault(fault, count, drains, gates):
                 fault["limit_unit"] != "V" or fault["measured_value"] is not None):
             raise ValueError("Invalid stopped scan ADC code")
         if fault["kind"] == "shunt_saturation":
-            expected = 32767 if fault["sign"] == 1 else 32768
-            if code != expected or abs(limit - expected * 0.0000025) > 1e-6:
+            gate = fault["channel"] == "gate"
+            endpoint = 524288 if gate else 32768
+            expected = endpoint - 1 if fault["sign"] == 1 else endpoint
+            lsb = 0.0000003125 if gate else 0.0000025
+            if code != expected or abs(limit - expected * lsb) > 1e-6:
                 raise ValueError("Invalid stopped scan shunt limit")
         elif code != 32767 or fault["sign"] != 1 or abs(limit - 40.95875) > 1e-4:
             raise ValueError("Invalid stopped scan bus limit")

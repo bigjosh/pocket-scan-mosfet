@@ -79,8 +79,9 @@ class HardwareAveragingSettingsTests(unittest.TestCase):
 
     def test_single_block_metadata_does_not_invent_point_variance(self):
         value = model.acquisition_metadata(model.DEFAULT_SETTINGS)
-        self.assertEqual(value, {"acquisition_mode": "ina226_triggered_v1", "ina_average_count": 64,
+        self.assertEqual(value, {"acquisition_mode": "ina226_ina228_triggered_v1", "ina_average_count": 64,
                                  "bus_conversion_us": 1100, "shunt_conversion_us": 1100,
+                                 "gate_bus_conversion_us": 1052, "gate_shunt_conversion_us": 1052,
                                  "blocks_per_point": 1, "point_variance": "unavailable"})
         self.assertEqual(model.acquisition_metadata(model.DEFAULT_SETTINGS, 3)["point_variance"],
                          "between_blocks")

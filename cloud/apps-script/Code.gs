@@ -34,12 +34,22 @@ const PSM_LAYOUTS = Object.freeze({
     'index', 'curve', 'requested_vds', 'requested_vgs', 'vds', 'vgs', 'id_a', 'ig_a']),
     wireColumns: Object.freeze(['vds', 'vgs', 'id_a', 'ig_a']),
     dataSchema: 5, rawEnd: 'H', flaggedGate: false, direct: true, currentCorrected: true}),
+  drainBaseline: Object.freeze({columns: Object.freeze([
+    'index', 'curve', 'requested_vds', 'requested_vgs', 'vds', 'vgs', 'id_a', 'ig_a']),
+    wireColumns: Object.freeze(['vds', 'vgs', 'id_a', 'ig_a']),
+    dataSchema: 5, rawEnd: 'H', flaggedGate: false, direct: true, currentCorrected: true,
+    drainOnly: true}),
 });
 
-function scanLayout_(schemaVersion) {
+function scanLayout_(schemaVersion, correction = null) {
   require_([1, 2, 3, 4, 5].includes(schemaVersion));
-  return schemaVersion === 5 ? PSM_LAYOUTS.baseline : schemaVersion === 4 ? PSM_LAYOUTS.raw :
+  return schemaVersion === 5 ? (correction && correction.version === 2 ? PSM_LAYOUTS.drainBaseline : PSM_LAYOUTS.baseline) : schemaVersion === 4 ? PSM_LAYOUTS.raw :
     schemaVersion === 3 ? PSM_LAYOUTS.compact : PSM_LAYOUTS.legacy;
+}
+
+function measurementMode_(layout) {
+  return layout.drainOnly ? 'drain_baseline_corrected_gate_raw' :
+    layout.currentCorrected ? 'baseline_corrected' : 'uncorrected';
 }
 
 /** Read only the bounded header, including on a chartless 11-column tab. */
@@ -48,9 +58,9 @@ function savedLayout_(sheet) {
   require_(sheet.getMaxRows() >= PSM.headerRow && width >= PSM_LAYOUTS.raw.columns.length,
     'invalid_saved_scan');
   const header = sheet.getRange(PSM.headerRow, 1, 1, width).getValues()[0];
-  for (const layout of [PSM_LAYOUTS.legacy, PSM_LAYOUTS.compact, PSM_LAYOUTS.raw, PSM_LAYOUTS.baseline]) {
+  for (const layout of [PSM_LAYOUTS.legacy, PSM_LAYOUTS.compact, PSM_LAYOUTS.raw, PSM_LAYOUTS.baseline, PSM_LAYOUTS.drainBaseline]) {
     if (layout.direct && !(sheet.getRange(12, 1).getValue() === 'measurement_mode' &&
-      sheet.getRange(12, 2).getValue() === (layout.currentCorrected ? 'baseline_corrected' : 'uncorrected') &&
+      sheet.getRange(12, 2).getValue() === measurementMode_(layout) &&
       sheet.getRange(13, 1).getValue() === 'scan_schema_version' &&
       sheet.getRange(13, 2).getValue() === layout.dataSchema)) continue;
     if (header.length >= layout.columns.length && layout.columns.every((name, i) => header[i] === name)) return layout;
@@ -313,6 +323,12 @@ function validateSettings_(settings) {
 function validateAcquisition_(acquisition, calibration, settings, requireCalibration = true) {
   const shared = {acquisition_mode: 'ina226_triggered_v1',
     ina_average_count: settings.ina_average_count, bus_conversion_us: 1100, shunt_conversion_us: 1100};
+  if (object_(acquisition) && acquisition.acquisition_mode === 'ina226_ina228_triggered_v1') {
+    require_(!requireCalibration, 'invalid_acquisition');
+    shared.acquisition_mode = 'ina226_ina228_triggered_v1';
+    shared.gate_bus_conversion_us = 1052;
+    shared.gate_shunt_conversion_us = 1052;
+  }
   const expected = Object.assign({}, shared, {blocks_per_point: 1, point_variance: 'unavailable'});
   require_(object_(acquisition) && Object.keys(acquisition).length === Object.keys(expected).length &&
     Object.keys(expected).every(key => acquisition[key] === expected[key]), 'invalid_acquisition');
@@ -322,14 +338,16 @@ function validateAcquisition_(acquisition, calibration, settings, requireCalibra
 
 /** Compact provenance for the applied current correction; never a drive table. */
 function validateCurrentCorrection_(value) {
-  require_(object_(value) && Object.keys(value).length === 5 && value.version === 1 &&
+  require_(object_(value) && ((value.version === 1 && Object.keys(value).length === 5) ||
+    (value.version === 2 && Object.keys(value).length === 6 && value.applied_to === 'drain')) &&
     value.lookup === 'linear_endpoint_hold' && typeof value.sha256 === 'string' &&
     /^[0-9a-f]{64}$/i.test(value.sha256), 'invalid_current_correction');
   for (const role of ['drain', 'gate']) {
     const channel = value[role];
+    const maxBusUv = role === 'drain' ? 40958750 : 102399805;
     require_(object_(channel) && Object.keys(channel).length === 5 &&
-      number_(channel.min_bus_uv, 0, 40958750, true) &&
-      number_(channel.max_bus_uv, channel.min_bus_uv, 40958750, true) &&
+      number_(channel.min_bus_uv, 0, maxBusUv, true) &&
+      number_(channel.max_bus_uv, channel.min_bus_uv, maxBusUv, true) &&
       number_(channel.zero_duty_u16, 0, 65535, true) &&
       number_(channel.zero_residual_uv, -42000000, 42000000, true) &&
       typeof channel.zero_valid === 'boolean', 'invalid_current_correction');
@@ -337,7 +355,7 @@ function validateCurrentCorrection_(value) {
 }
 
 /** A stopped point is a diagnostic, never a numeric measurement row. */
-function validateFault_(fault, count, settings, geometry) {
+function validateFault_(fault, count, settings, geometry, acquisition = null) {
   const keys = ['channel', 'kind', 'raw_code', 'sign', 'limit_value', 'limit_unit',
     'measured_value', 'index', 'curve', 'requested_vds', 'requested_vgs', 'phase'];
   require_(object_(fault) && Object.keys(fault).length === keys.length &&
@@ -366,8 +384,13 @@ function validateFault_(fault, count, settings, geometry) {
   } else {
     require_(fault.limit_unit === 'V' && fault.measured_value === null, 'invalid_fault');
     if (fault.kind === 'shunt_saturation') {
-      require_(fault.raw_code === (fault.sign === 1 ? 0x7FFF : 0x8000) &&
-        number_(fault.limit_value, 0.0819175 - 1e-6, 0.08192 + 1e-6), 'invalid_fault');
+      const gate228 = fault.channel === 'gate' && acquisition &&
+        acquisition.acquisition_mode === 'ina226_ina228_triggered_v1';
+      const endpoint = gate228 ? 0x80000 : 0x8000;
+      const code = fault.sign === 1 ? endpoint - 1 : endpoint;
+      const limit = code * (gate228 ? 0.0000003125 : 0.0000025);
+      require_(fault.raw_code === code &&
+        number_(fault.limit_value, limit - 1e-6, limit + 1e-6), 'invalid_fault');
     } else {
       require_(fault.raw_code === 0x7FFF && fault.sign === 1 &&
         number_(fault.limit_value, 40.95875 - 1e-4, 40.95875 + 1e-4), 'invalid_fault');
@@ -412,7 +435,7 @@ function validateScan_(scan) {
     scan.point_count < geometry.count);
   if (scan.schema_version >= 2) {
     if (scan.outcome === 'partial') {
-      validateFault_(scan.fault, scan.point_count, scan.settings, geometry);
+      validateFault_(scan.fault, scan.point_count, scan.settings, geometry, scan.acquisition);
       if (layout.direct) require_(['drive', 'settle', 'sample'].includes(scan.fault.phase));
     } else {
       require_(scan.fault === null);
@@ -580,7 +603,7 @@ function identity_(sheet) {
 }
 
 function receive_(spreadsheet, scan, digest) {
-  const layout = scanLayout_(scan.schema_version);
+  const layout = scanLayout_(scan.schema_version, scan.current_correction);
   const points = sheetPoints_(scan, layout);
   const width = layout.columns.length;
   const index = ensureIndex_(spreadsheet);
@@ -620,7 +643,7 @@ function receive_(spreadsheet, scan, digest) {
       ['state', 'staging'], ['device_id', scan.device_id], ['created_utc', scan.created_utc || ''],
       ['received_utc', received], ['point_count', scan.point_count], ['duration_ms', scan.duration_ms],
       ['outcome', scan.outcome], ['settings_json', JSON.stringify(scan.settings)],
-      layout.direct ? ['measurement_mode', layout.currentCorrected ? 'baseline_corrected' : 'uncorrected'] : ['calibration_sha256', scan.calibration.sha256],
+      layout.direct ? ['measurement_mode', measurementMode_(layout)] : ['calibration_sha256', scan.calibration.sha256],
       layout.direct ? ['scan_schema_version', scan.schema_version] : ['calibration_metadata_json', JSON.stringify(scan.calibration.metadata)],
       scan.schema_version >= 2 ? ['fault_json', JSON.stringify(scan.fault)] : []];
     const header = metadata.map(row => Array.from({length: width}, (_, i) => literal_(row[i] === undefined ? '' : row[i])));
@@ -712,16 +735,20 @@ function addScanCharts() {
         if (layout.flaggedGate || layout.direct) {
           require_([2, 3].includes(settings.version) && (partial ? count < geometry.count : count === geometry.count), 'invalid_saved_scan');
         }
+        let acquisition = null;
         if (settings.version === 3) {
           require_((layout.flaggedGate || layout.direct) && sheet.getRange(1, 4).getValue() === 'acquisition_json', 'invalid_saved_scan');
-          validateAcquisition_(JSON.parse(sheet.getRange(1, 5).getValue()),
+          acquisition = JSON.parse(sheet.getRange(1, 5).getValue());
+          validateAcquisition_(acquisition,
             layout.direct ? null : JSON.parse(sheet.getRange(13, 2).getValue()), settings, !layout.direct);
         }
         if (layout.currentCorrected) {
           require_(sheet.getRange(2, 4).getValue() === 'current_correction_json', 'invalid_saved_scan');
-          validateCurrentCorrection_(JSON.parse(sheet.getRange(2, 5).getValue()));
+          const correction = JSON.parse(sheet.getRange(2, 5).getValue());
+          validateCurrentCorrection_(correction);
+          require_(measurementMode_(scanLayout_(5, correction)) === measurementMode_(layout), 'invalid_saved_scan');
         }
-        if (partial) validateFault_(fault, count, settings, geometry);
+        if (partial) validateFault_(fault, count, settings, geometry, acquisition);
         require_(sheet.getMaxRows() >= PSM.headerRow + count, 'invalid_saved_scan');
         const points = count ? sheet.getRange(PSM.headerRow + 1, 1, count, layout.columns.length).getValues() : [];
         if (layout.flaggedGate || layout.direct) validatePoints_(points, settings, geometry, layout);
@@ -826,7 +853,9 @@ function ensureScanCharts_(sheet, points, fault = null, layout = PSM_LAYOUTS.leg
   // tags only its own new metadata and keeps the same presentation region.
   const matchingDataSchema = saved && (layout.flaggedGate || layout.direct ? saved.data_schema === layout.dataSchema :
     saved.data_schema === undefined || saved.data_schema === 2);
-  if (saved && matchingDataSchema && saved.version === PSM_CHARTS.version && saved.state === 'complete' &&
+  const matchingCorrectionScope = saved && (layout.drainOnly ? saved.current_correction_applied_to === 'drain' :
+    saved.current_correction_applied_to === undefined);
+  if (saved && matchingDataSchema && matchingCorrectionScope && saved.version === PSM_CHARTS.version && saved.state === 'complete' &&
       ((empty && saved.empty === true) || (!empty &&
         ['drain', 'leakage'].every(role => charts.some(chart => chart.getChartId() === saved[role]))))) {
     if (sheet.getRange(48, 20).getValue() !== ready) sheet.getRange(48, 20).setValue(ready);
@@ -856,12 +885,14 @@ function ensureScanCharts_(sheet, points, fault = null, layout = PSM_LAYOUTS.leg
     }
     const initial = {version: PSM_CHARTS.version, state: 'building'};
     if (layout.flaggedGate || layout.direct) initial.data_schema = layout.dataSchema;
+    if (layout.drainOnly) initial.current_correction_applied_to = 'drain';
     sheet.addDeveloperMetadata(PSM_CHARTS.key, JSON.stringify(initial));
     metadata = chartMetadata_(sheet);
   }
   growChartArea_(sheet, rows);
   saved = {version: PSM_CHARTS.version, state: 'building'};
   if (layout.flaggedGate || layout.direct) saved.data_schema = layout.dataSchema;
+  if (layout.drainOnly) saved.current_correction_applied_to = 'drain';
   metadata.setValue(JSON.stringify(saved));
   if (fault) sheet.getRange(2, 19).setValue(banner).setFontColor('#C75C0B');
   if (empty) {
@@ -880,12 +911,13 @@ function ensureScanCharts_(sheet, points, fault = null, layout = PSM_LAYOUTS.leg
     .setAllowInvalid(false).setHelpText('Choose a whole-number page; every gate curve is included.').build());
   page.setBackground('#E5F3F4').setFontColor('#006B73').setNumberFormat('0');
   sheet.getRange(1, 22).setFormula('="of "&MAX(1,ROUNDUP(COUNTA($AG$2:$AG$' + (plan.groups.length + 1) + ')/16,0))');
-  sheet.getRange(47, 19).setValue(layout.currentCorrected ?
+  sheet.getRange(47, 19).setValue(layout.drainOnly ?
+    'Measured axes; every point joins its requested gate sweep. Drain current uses open-output baseline correction; gate current is raw. Voltages retain raw shunt drop. 16 gate curves/page.' : layout.currentCorrected ?
     'Measured axes; every point joins its requested gate sweep. Currents use open-output baseline correction; voltages retain raw shunt drop. 16 gate curves/page.' : layout.direct ?
     'Measured axes; every point joins its requested gate sweep. No target classification or current correction. 16 gate curves/page.' : layout.flaggedGate ?
     'Measured axes; VGS labels are requests. Device gate-off-target flags create isolated amber points. 16 gate curves/page.' :
     'Measured axes; VGS labels are requests. Gate misses outside +/-20 mV are isolated amber points. 16 gate curves/page.');
-  sheet.getRange(49, 19).setValue('Leakage is maximum absolute ' + (layout.uncorrected ? 'uncorrected' : 'baseline-corrected') +
+  sheet.getRange(49, 19).setValue('Leakage is maximum absolute ' + (layout.drainOnly ? 'raw' : layout.uncorrected ? 'uncorrected' : 'baseline-corrected') +
     ' Ig among recorded points in each drain sweep.');
   sheet.getRange(50, 19).setValue('Chart source formulas are in columns AG:BG. All measured points remain in A:' + layout.rawEnd + '.');
 
@@ -930,10 +962,10 @@ function ensureScanCharts_(sheet, points, fault = null, layout = PSM_LAYOUTS.leg
   const specifications = [
     {role: 'drain', title: PSM_CHARTS.drainTitle, column: PSM_CHARTS.drainColumn,
       rows: drain.length, columns: drainColumns, anchor: 3, type: Charts.ChartType.LINE,
-      x: 'Measured VDS (V)', y: 'Drain current Id (mA)'},
+      x: 'Measured VDS (V)', y: layout.drainOnly ? 'Baseline-corrected Id (mA)' : 'Drain current Id (mA)'},
     {role: 'leakage', title: PSM_CHARTS.leakageTitle, column: 37,
       rows: summary.length, columns: 2, anchor: 25, type: Charts.ChartType.SCATTER,
-      x: 'Measured VGS at peak |Ig| (V)', y: 'Maximum |Ig| (uA)'},
+      x: 'Measured VGS at peak |Ig| (V)', y: layout.drainOnly ? 'Maximum raw |Ig| (uA)' : 'Maximum |Ig| (uA)'},
   ];
   for (const spec of specifications) {
     charts = sheet.getCharts();

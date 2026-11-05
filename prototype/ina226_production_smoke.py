@@ -1,23 +1,27 @@
-"""Zero-PWM native smoke test of the production INA226 acquisition driver.
+"""Zero-PWM smoke test of the mixed INA226 drain / INA228 gate driver.
 
 Run only with normal main.py stopped and the agreed open-output fixture.
     import ina226_production_smoke
     ina226_production_smoke.run("root-chosen-run-nonce")
 
 No files, network, calibration or positive PWM commands. Verifies triggered
-averaging, ready-bit latching, cancellation and disabled threshold comparators.
+averaging, ready-bit latching, cancellation and the raw ADC range-stop policy.
 It does not produce or claim a physical saturation excursion. Continuous-mode
-configs and disabled alert masks are restored in finally, then outputs close.
+configs and the per-chip diagnostic controls are restored in finally, then outputs close.
 """
 import json
 import time
 import model
 from machine import Pin
-from hardware import Instrument, HardwareError, INA_CONFIG, ALERT_MASK
+from hardware import (Instrument, HardwareError, INA_CONFIG, ALERT_MASK,
+                      INA228_CONFIG, INA228_ADC_CONFIG, INA228_ALERT_MASK)
 
-TEST_ID = "ina226-production-trigger-v2"
-ADDRESSES = (0x44, 0x41)
+TEST_ID = "mixed-ina-production-trigger-v3"
+ADDRESSES = (0x44, 0x40)
 ROLES = ("drain", "gate")
+RESTORE = ((0x44, 6, ALERT_MASK, 0xFC03), (0x44, 0, INA_CONFIG, 0xFFFF),
+           (0x40, 0, INA228_CONFIG, 0xFFFF), (0x40, 1, INA228_ADC_CONFIG, 0xFFFF),
+           (0x40, 0x0B, INA228_ALERT_MASK, 0xF000))
 
 
 def emit(nonce, event, **fields):
@@ -42,10 +46,11 @@ def run(nonce):
         Pin(20, Pin.OUT, value=0)
         instrument = Instrument()
         assert ALERT_MASK == 0, "Current threshold comparators must be disabled"
-        for address in ADDRESSES:
-            assert instrument._read16(address, 6) & 0xFC03 == 0
+        assert instrument._read16(0x44, 6) & 0xFC03 == 0
+        assert instrument._read16(0x40, 0x0B) & 0xF000 == INA228_ALERT_MASK
         assert_zero(instrument)
-        emit(nonce, "THRESHOLD_COMPARATORS_DISABLED", alert_mask=0,
+        emit(nonce, "RANGE_STOP_POLICY", drain_alert_mask=0,
+             gate_diagnostic_control=INA228_ALERT_MASK, comparator_flags_trip=False,
              physical_saturation_test=False)
 
         started = time.ticks_us()
@@ -94,12 +99,12 @@ def run(nonce):
         # set_duty(0) resumes the real continuous-monitoring path after trigger.
         instrument.set_duty("gate", 0)
         instrument.set_duty("drain", 0)
-        for address in ADDRESSES:
-            assert instrument._read16(address, 0) == INA_CONFIG
+        assert instrument._read16(0x44, 0) == INA_CONFIG
+        assert instrument._read16(0x40, 0) == INA228_CONFIG
+        assert instrument._read16(0x40, 1) == INA228_ADC_CONFIG
         assert_zero(instrument)
-        for address in ADDRESSES:
-            assert instrument._read16(address, 6) & 0xFC03 == 0
-        emit(nonce, "CONTINUOUS_RESUME_PASS", alert_mask=0, pwm_zero=True)
+        instrument.poll_alerts()
+        emit(nonce, "CONTINUOUS_RESUME_PASS", drain_alert_mask=0, pwm_zero=True)
         passed = True
     finally:
         errors = []
@@ -109,14 +114,13 @@ def run(nonce):
             except Exception as error:
                 errors.append("zero:" + type(error).__name__)
             # Attempt every restore even if another sensor or cleanup failed.
-            for index, address in enumerate(ADDRESSES):
-                for register, value in ((6, ALERT_MASK), (0, INA_CONFIG)):
-                    try:
-                        instrument._write16(address, register, value)
-                        actual = instrument._read16(address, register)
-                        assert actual == value if register != 6 else actual & 0xFC03 == value
-                    except Exception as error:
-                        errors.append(ROLES[index] + ":restore" + str(register) + ":" + type(error).__name__)
+            for address, register, value, mask in RESTORE:
+                try:
+                    instrument._write16(address, register, value)
+                    actual = instrument._read16(address, register)
+                    assert actual & mask == value
+                except Exception as error:
+                    errors.append(hex(address) + ":restore" + str(register) + ":" + type(error).__name__)
             try:
                 instrument.close()
             except Exception as error:
@@ -127,7 +131,8 @@ def run(nonce):
             except Exception as error:
                 errors.append("pin" + str(gpio) + ":" + type(error).__name__)
         emit(nonce, "CLEANUP", passed=passed and not errors,
-             continuous_config=INA_CONFIG, configuration_restored=instrument is not None and not errors,
+             continuous_config=[INA_CONFIG, INA228_ADC_CONFIG],
+             configuration_restored=instrument is not None and not errors,
              outputs_low=not errors, cleanup_errors=errors)
         if errors:
             raise RuntimeError("Production smoke cleanup failed")

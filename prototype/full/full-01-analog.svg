@@ -142,7 +142,7 @@
 <polyline class="wire" points="1380,995 1392,995"/>
 <polyline class="wire" points="1498,995 1510,995"/>
 <rect x="1392" y="986" width="106" height="18" fill="#fff" stroke="#236b69" stroke-width="2.5"/>
-<text x="1445.0" y="977" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R10  680 ohm</text>
+<text x="1445.0" y="977" font-size="17" fill="#172b3a" text-anchor="middle" font-weight="normal">R10  98.8 ohm</text>
 <text x="1386" y="1022" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">1</text>
 <text x="1504" y="1022" font-size="15" fill="#172b3a" text-anchor="middle" font-weight="normal">2</text>
 <polyline class="wire" points="1510,995 1880,995"/>
@@ -150,7 +150,7 @@
 <text x="1810" y="966" font-size="22" fill="#172b3a" text-anchor="start" font-weight="bold">J1.2  G</text>
 <text x="1780" y="1030" font-size="20" fill="#236b69" text-anchor="start" font-weight="bold">DUT_G</text>
 <rect x="1370" y="795" width="380" height="135" rx="7" fill="#eaf4f3" stroke="#cbd7db" stroke-width="1.3"/>
-<text x="1390" y="827" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U3:S  INA226  0x41</text>
+<text x="1390" y="827" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">U3:S  INA228  0x40</text>
 <text x="1390" y="853" font-size="17" fill="#526674" text-anchor="start" font-weight="normal">Other pins: sheet 2</text>
 <text x="1385" y="885" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">8 VBUS</text>
 <text x="1460" y="913" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">10 IN+</text>
@@ -191,10 +191,10 @@
 <text x="1220" y="1105" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS pin 8 and IN+ pin 10 are BEFORE the shunt.</text>
 <text x="1220" y="1138" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">IN- pin 9 is on the DUT side. Use Kelvin sense wires.</text>
 <text x="1220" y="1171" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">VG = VBUS_G - VSH_G; subtract VS for VGS.</text>
-<text x="1220" y="1204" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Remove the original R100 shunt; do not parallel it.</text>
-<text x="1220" y="1237" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Ig = (VSH_G - baseline_G) / 638 ohm when calibrated.</text>
-<text x="45" y="1340" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">INA226 numbers are IC pins, not breakout-header positions. J1 pins 1/2/3 = D/G/S are our fixture assignment, not a MOSFET package pinout.</text>
+<text x="1220" y="1204" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Gate: 98.8 ohm measured; stock shunt replaced.</text>
+<text x="1220" y="1237" font-size="19" fill="#172b3a" text-anchor="start" font-weight="normal">Ig = (VSH_G - baseline_G) / 98.8 ohm when calibrated.</text>
+<text x="45" y="1340" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">INA226/INA228 numbers are IC pins, not breakout-header positions. J1 pins 1/2/3 = D/G/S are our fixture assignment, not a MOSFET package pinout.</text>
 <polyline class="wire" points="40,1354 1960,1354"/>
-<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Optional current baseline; raw INA shunt stops</text>
+<text x="40" y="1384" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">Pocket MOSFET scanner | H | Docs 2026-11-04 | INA228 gate / 98.8 ohm fitted | C5 fitted; C6 unconfirmed</text>
 <text x="1960" y="1384" font-size="18" fill="#526674" text-anchor="end" font-weight="normal">Sheet 1 / 4</text>
 </svg>

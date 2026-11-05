@@ -6,6 +6,8 @@ and the PWM code used. 53 quadratic-spaced sweep points leave 12 slots for
 the measurements already taken during zero search. Calibration never grows a
 point list or writes files.
 Only a complete candidate may atomically replace the binary file.
+Scanning applies current offsets to drain only; both zero-drive anchors remain
+usable. The unchanged binary also retains gate samples for zero capture.
 """
 
 import struct
@@ -40,11 +42,24 @@ PATH = "current-baseline.bin"
 _EMPTY = b""
 _SETTINGS = ((12, "ina_average_count"), (16, "settle_ms"),
              (20, "driver_supply_uv"), (24, "source_voltage_uv"))
+# Existing binary files used these words as zero-filled reserved space.
+# Keeping physical units and the file size lets them load as incompatible,
+# rather than making an intentional sensor upgrade a startup error.
+_ADC_OFFSETS = (100, 104, 108, 112)
 
 
 def _round_div(value, divisor):
     return ((value + divisor // 2) // divisor if value >= 0 else
             -((-value + divisor // 2) // divisor))
+
+
+def _round_scaled(value, numerator, divisor):
+    # Divide before multiplying so native 20-bit sums never create a large
+    # temporary integer. The remainder retains exact fractional-LSB rounding.
+    negative = value < 0
+    value = -value if negative else value
+    scaled = (value // divisor) * numerator + _round_div((value % divisor) * numerator, divisor)
+    return -scaled if negative else scaled
 
 
 def sweep_duty_u16(index):
@@ -71,7 +86,13 @@ def _hardware_value(offset):
         return int(model.DRAIN_BIAS_RESISTOR_OHM)
     if offset == 56:
         return int(model.PWM_RAIL_V * 1000000 + 0.5)
-    return int(model.DRAIN_BIAS_V * 1000000 + 0.5)
+    if offset == 60:
+        return int(model.DRAIN_BIAS_V * 1000000 + 0.5)
+    if offset == 100:
+        return model.INA_CONVERSION_US
+    if offset == 104:
+        return model.INA228_CONVERSION_US
+    return 81920 if offset == 108 else 163840
 
 
 class Baseline:
@@ -127,10 +148,12 @@ class Baseline:
             self._put(offset, _hardware_value(offset))
         for index in range(2):
             item = identity.get(ROLES[index], {}) if identity else {}
-            address = item.get("address", 0x44 if index == 0 else 0x41)
+            address = item.get("address", 0x44 if index == 0 else 0x40)
             die = item.get("die", 0)
             struct.pack_into("<HH", self._data, 64 + index * 4, address, die)
         self._put(96, BLOCKS_PER_KNOT)
+        for offset in _ADC_OFFSETS:
+            self._put(offset, _hardware_value(offset))
 
     def add_knot(self, role, bus_uv, shunt_nv, duty_u16):
         """Append increasing measured bus knots, replacing an exact duplicate.
@@ -194,14 +217,23 @@ class Baseline:
                 self._get(96) != BLOCKS_PER_KNOT):
             raise ValueError("Invalid baseline acquisition settings")
         for offset in range(28, 64, 4):
-            if self._get(offset) != _hardware_value(offset):
-                raise ValueError("Baseline hardware values changed")
-        for index in range(100, HEADER_BYTES):
+            if self._get(offset) <= 0:
+                raise ValueError("Invalid baseline hardware values")
+        legacy_adc = all(self._get(offset) == 0 for offset in _ADC_OFFSETS)
+        if not legacy_adc:
+            if (not 1 <= self._get(100) <= 10000 or
+                    not 1 <= self._get(104) <= 10000 or
+                    self._get(108) != 81920 or self._get(112) != 163840):
+                raise ValueError("Invalid baseline ADC settings")
+        for index in range(116, HEADER_BYTES):
             if self._data[index]:
                 raise ValueError("Invalid baseline reserved data")
         for role in range(2):
             address, die = struct.unpack_from("<HH", self._data, 64 + role * 4)
-            if address != (0x44 if role == 0 else 0x41) or die not in (0, 0x2260, 0x2261):
+            is_228 = role == 1 and address == 0x40
+            valid_die = (die == 0 or die >> 4 == 0x228) if is_228 else die in (0, 0x2260, 0x2261)
+            if (address != (0x44 if role == 0 else (0x40 if is_228 else 0x41)) or
+                    not valid_die or (is_228 and legacy_adc)):
                 raise ValueError("Invalid baseline sensor identity")
             count = self.count(role)
             if not 2 <= count <= MAX_KNOTS:
@@ -209,8 +241,8 @@ class Baseline:
             previous = -1
             for index in range(count):
                 bus = self.bus_uv(role, index)
-                if (not previous < bus <= 40958750 or
-                        abs(self.shunt_nv(role, index)) >= 81920000 or
+                if (not previous < bus <= (102399805 if is_228 else 40958750) or
+                        abs(self.shunt_nv(role, index)) >= (163840000 if is_228 else 81920000) or
                         not 0 <= self.duty_u16(role, index) <= 65535):
                     raise ValueError("Invalid baseline knot")
                 previous = bus
@@ -288,10 +320,19 @@ class Baseline:
         for offset, key in _SETTINGS:
             if self._get(offset) != settings.get(key):
                 return False
-        if identity is not None:
-            for index in range(2):
+        for offset in range(28, 64, 4):
+            if self._get(offset) != _hardware_value(offset):
+                return False
+        for offset in _ADC_OFFSETS:
+            if self._get(offset) != _hardware_value(offset):
+                return False
+        for index in range(2):
+            address, die = struct.unpack_from("<HH", self._data, 64 + index * 4)
+            if (address != (0x44 if index == 0 else 0x40) or
+                    (die and die >> 4 != (0x226 if index == 0 else 0x228))):
+                return False
+            if identity is not None:
                 item = identity.get(ROLES[index], {})
-                address, die = struct.unpack_from("<HH", self._data, 64 + index * 4)
                 if item.get("address") != address or (die and item.get("die") != die):
                     return False
         return True
@@ -336,8 +377,8 @@ class Baseline:
     def metadata(self, settings):
         if not self.compatible(settings):
             return None
-        result = {"version": 1, "sha256": self.sha256,
-                  "lookup": "linear_endpoint_hold"}
+        result = {"version": 2, "sha256": self.sha256,
+                  "lookup": "linear_endpoint_hold", "applied_to": "drain"}
         for index in range(2):
             result[ROLES[index]] = {
                 "min_bus_uv": self.bus_uv(index, 0),
@@ -417,8 +458,10 @@ class Calibrator:
         pair = self.instrument.read_pair()
         for index in range(2):
             item = pair[ROLES[index]]
-            self._codes[index * 2] = item.get("bus_code", int(item["bus_v"] / 0.00125 + 0.5))
-            value = item["shunt_v"] / 0.0000025
+            bus_lsb = 0.00125 if index == 0 else 0.0001953125
+            shunt_lsb = 0.0000025 if index == 0 else 0.0000003125
+            self._codes[index * 2] = item.get("bus_code", int(item["bus_v"] / bus_lsb + 0.5))
+            value = item["shunt_v"] / shunt_lsb
             self._codes[index * 2 + 1] = item.get("shunt_code", int(value + (0.5 if value >= 0 else -0.5)))
 
     def tick(self, now_ms):
@@ -463,7 +506,7 @@ class Calibrator:
             return
         if not self.instrument.poll_measurement():
             if self._clock >= self._measurement_deadline:
-                raise ValueError("Calibration INA226 conversion timed out")
+                raise ValueError("Calibration sensor conversion timed out")
             return
         self._read()
         self._bus_sum += self._codes[self._role * 2]
@@ -472,8 +515,14 @@ class Calibrator:
         if self._blocks < BLOCKS_PER_KNOT:
             self.phase = "drive"
             return
-        bus_uv = _round_div(self._bus_sum * 1250, BLOCKS_PER_KNOT)
-        shunt_nv = _round_div(self._shunt_sum * 2500, BLOCKS_PER_KNOT)
+        if self._role == 0:
+            bus_uv = _round_div(self._bus_sum * 1250, BLOCKS_PER_KNOT)
+            shunt_nv = _round_div(self._shunt_sum * 2500, BLOCKS_PER_KNOT)
+        else:
+            # INA228 has fractional µV/nV LSBs. Sum native ADC codes first,
+            # then round once, retaining all averaging precision in the table.
+            bus_uv = _round_scaled(self._bus_sum, 3125, BLOCKS_PER_KNOT * 16)
+            shunt_nv = _round_scaled(self._shunt_sum, 625, BLOCKS_PER_KNOT * 2)
         terminal_uv = bus_uv - _round_div(shunt_nv, 1000)
         self._blocks = self._bus_sum = self._shunt_sum = 0
         self._completed += 1

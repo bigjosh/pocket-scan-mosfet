@@ -1,9 +1,11 @@
-"""Run in RAM with mpremote; read INA226 registers without configuring drives.
+"""Read-only mixed INA226 drain / INA228 gate discovery (historical filename).
 
 I2C1: SDA GP18 (Pico header 24), SCL GP19 (header 25), 100 kHz.
 No sensor configuration/calibration writes, PWM, Wi-Fi or ADC operations.
 No current calculation: the fitted shunt value must be verified separately.
-TI register reference: https://www.ti.com/lit/ds/symlink/ina226.pdf
+Gate 0x40 uses the INA228 register map; other addresses use INA226's map.
+TI register references: https://www.ti.com/lit/ds/symlink/ina226.pdf
+and https://www.ti.com/lit/ds/symlink/ina228.pdf
 """
 from machine import I2C, Pin
 import json
@@ -18,6 +20,11 @@ def read16(bus, address, register):
 
 def signed16(value):
     return value - 65536 if value & 0x8000 else value
+
+
+def read24(bus, address, register):
+    data = bus.readfrom_mem(address, register, 3)
+    return (data[0] << 16) | (data[1] << 8) | data[2]
 
 
 def main():
@@ -38,30 +45,46 @@ def main():
         device = {"address": "0x%02X" % address, "errors": [], "samples": []}
         result["devices"].append(device)
         try:
-            manufacturer = read16(bus, address, 0xFE)
-            die = read16(bus, address, 0xFF)
+            gate228 = address == 0x40
+            manufacturer_reg, die_reg = (0x3E, 0x3F) if gate228 else (0xFE, 0xFF)
+            manufacturer = read16(bus, address, manufacturer_reg)
+            die = read16(bus, address, die_reg)
             device["manufacturer_id"] = "0x%04X" % manufacturer
             device["die_id"] = "0x%04X" % die
-            device["identity_ok"] = manufacturer == 0x5449 and die in (0x2260, 0x2261)
+            device["identity_ok"] = manufacturer == 0x5449 and (
+                die >> 4 == 0x228 if gate228 else die in (0x2260, 0x2261))
             if not device["identity_ok"]:
                 device["errors"].append("Unexpected identity; measurement interpretation skipped")
                 continue
-            device["configuration"] = "0x%04X" % read16(bus, address, 0x00)
-            device["calibration"] = "0x%04X" % read16(bus, address, 0x05)
+            config = read16(bus, address, 0x00)
+            device["configuration"] = "0x%04X" % config
+            device["calibration"] = "0x%04X" % read16(bus, address, 2 if gate228 else 5)
+            bus_lsb = 0.0001953125 if gate228 else 0.00125
+            shunt_lsb_uv = (0.078125 if config & 16 else 0.3125) if gate228 else 2.5
             device["identity_checks_passed"] = 0
             for index in range(100):
                 try:
-                    if read16(bus, address, 0xFE) != manufacturer or read16(bus, address, 0xFF) != die:
+                    if read16(bus, address, manufacturer_reg) != manufacturer or read16(bus, address, die_reg) != die:
                         raise ValueError("Identity changed")
                     device["identity_checks_passed"] += 1
-                    shunt = signed16(read16(bus, address, 0x01))
-                    voltage = read16(bus, address, 0x02)
+                    if gate228:
+                        shunt_word = read24(bus, address, 4)
+                        bus_word = read24(bus, address, 5)
+                        if shunt_word & 15 or bus_word & 15 or bus_word & 0x800000:
+                            raise ValueError("Invalid INA228 ADC code")
+                        shunt = shunt_word >> 4
+                        if shunt & 0x80000:
+                            shunt -= 0x100000
+                        voltage = bus_word >> 4
+                    else:
+                        shunt = signed16(read16(bus, address, 0x01))
+                        voltage = read16(bus, address, 0x02)
                     device["samples"].append({
                         "index": index,
                         "bus_raw": voltage,
-                        "bus_v": voltage * 0.00125,
+                        "bus_v": voltage * bus_lsb,
                         "shunt_raw": shunt,
-                        "shunt_uv": shunt * 2.5,
+                        "shunt_uv": shunt * shunt_lsb_uv,
                     })
                 except (OSError, ValueError) as error:
                     device["errors"].append("sample %d: %s" % (index, error))
@@ -90,7 +113,7 @@ def main():
                 }
     print(json.dumps(result))
     if not result["pass"]:
-        raise RuntimeError("INA226 communication smoke test did not pass; see JSON result")
+        raise RuntimeError("Sensor communication smoke test did not pass; see JSON result")
 
 
 main()

@@ -25,7 +25,7 @@ def settings(**changes):
 
 
 class FakeInstrument:
-    identity = {"drain": {"address": 0x44}, "gate": {"address": 0x41}}
+    identity = {"drain": {"address": 0x44}, "gate": {"address": 0x40}}
 
     def __init__(self, drain_current=0.0, gate_current=0.0):
         self.duties = {"drain": 0.0, "gate": 0.0}
@@ -136,7 +136,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(model.DEFAULT_SETTINGS["drain_start_uv"], 100000)
         self.assertFalse(hasattr(model, "DRAIN_CURRENT_LIMIT_A"))
         self.assertFalse(hasattr(model, "GATE_CURRENT_LIMIT_A"))
-        self.assertEqual(model.GATE_SHUNT_OHM, 638)
+        self.assertEqual(model.GATE_SHUNT_OHM, 98.8)
         for obsolete in ("validate_calibration", "corrected_current", "interpolate",
                           "calibration_duty_limit", "calibration_targets_uv"):
             self.assertFalse(hasattr(model, obsolete), obsolete)
@@ -189,15 +189,16 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertAlmostEqual(rows[0]["vds"], 2.6225 + 0.0165 - 3.3)
         self.assertAlmostEqual(rows[0]["id_a"], -0.0165 / 0.789)
-        self.assertAlmostEqual(rows[0]["ig_a"], 10e-6 / 638)
+        self.assertAlmostEqual(rows[0]["ig_a"], 10e-6 / model.GATE_SHUNT_OHM)
         self.assertNotEqual(rows[0]["vgs"], rows[1]["vgs"])
 
     def test_reported_adc_endpoints_stop_both_channels_and_signs_before_trigger(self):
         for role in ("drain", "gate"):
-            for code, sign in ((0x7FFF, 1), (0x8000, -1)):
+            for code, sign in (((0x7FFF, 1), (0x8000, -1)) if role == "drain" else
+                               ((0x7FFFF, 1), (0x80000, -1))):
                 hw = FakeInstrument()
                 hw.read_error = OverrangeError(role, "shunt_saturation", code, sign,
-                                               code * 2.5e-6, "V")
+                                               code * (2.5e-6 if role == "drain" else 0.3125e-6), "V")
                 scanner = Engine(hw)
                 scanner.start_scan(settings())
                 events = run_engine(scanner, hw)
@@ -213,22 +214,22 @@ class EngineTests(unittest.TestCase):
     def test_near_adc_endpoints_record_raw_current_without_lower_thresholds(self):
         for signed in (-32767, 32766):
             shunt = signed * 2.5e-6
-            hw = FakeInstrument(drain_current=shunt / 0.789, gate_current=shunt / 638)
+            hw = FakeInstrument(drain_current=shunt / 0.789, gate_current=shunt / model.GATE_SHUNT_OHM)
             scanner = Engine(hw)
             scanner.start_scan(settings())
             rows = [row for kind, row in run_engine(scanner, hw) if kind == "point"]
             self.assertEqual(scanner.state, "complete", scanner.error)
             self.assertEqual(len(rows), 1)
             self.assertAlmostEqual(rows[0]["id_a"], shunt / 0.789)
-            self.assertAlmostEqual(rows[0]["ig_a"], shunt / 638)
+            self.assertAlmostEqual(rows[0]["ig_a"], shunt / model.GATE_SHUNT_OHM)
             self.assertGreater(abs(rows[0]["id_a"]), 0.1)
 
     def test_partial_trip_retains_only_previously_completed_points(self):
         class TripsOnSecondPoint(FakeInstrument):
             def read_pair(self):
                 if self.reads == 3:
-                    raise OverrangeError("gate", "shunt_saturation", 0x8000, -1,
-                                         0.08192, "V")
+                    raise OverrangeError("gate", "shunt_saturation", 0x80000, -1,
+                                         0.16384, "V")
                 return super().read_pair()
         hw = TripsOnSecondPoint()
         scanner = Engine(hw)
@@ -239,7 +240,7 @@ class EngineTests(unittest.TestCase):
         self.assertIs(scanner.latest, rows[0])
         self.assertEqual(scanner.fault["index"], 1)
         self.assertEqual(scanner.fault["kind"], "shunt_saturation")
-        self.assertEqual(scanner.fault["raw_code"], 0x8000)
+        self.assertEqual(scanner.fault["raw_code"], 0x80000)
         self.assertIsNone(scanner.fault["measured_value"])
 
     def test_cancel_in_settle_and_long_average_never_emits_an_extra_point(self):

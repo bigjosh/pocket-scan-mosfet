@@ -113,6 +113,9 @@ class LiveCheckTests(unittest.TestCase):
             loaded = cb.Baseline()
             self.assertTrue(loaded.load(path))
             self.assertTrue(loaded.compatible(main.storage.load_settings(False), clock.instrument.identity))
+            self.assertGreater(loaded.count(0), 2)
+            self.assertGreater(loaded.count(1), 2)
+            self.assertIn("gate", loaded.metadata(main.storage.load_settings(False)))
 
     def test_residual_transport_failure_preserves_old_file_and_cleans_stage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -156,6 +159,62 @@ class LiveCheckTests(unittest.TestCase):
                 drain, gate = module._target_uv(config, index)
                 self.assertTrue(0 <= drain <= 5000000)
                 self.assertTrue(0 <= gate <= 5000000)
+
+    def test_residual_values_correct_only_drain_and_report_unmodified_raw_gate(self):
+        class VoltageDependentTable:
+            def __init__(self):
+                self.lookups = []
+                self.drive_calls = []
+
+            def drive_duty(self, role, voltage, settings):
+                self.drive_calls.append(role)
+                return 0
+
+            def offset_nv(self, role, bus_uv):
+                if role != 0:
+                    raise AssertionError("Raw gate current must never consult its baseline")
+                self.lookups.append((role, bus_uv))
+                return bus_uv // 800
+
+        for sign in (-1, 1):
+            with self.subTest(sign=sign), tempfile.TemporaryDirectory() as directory:
+                module, _, main = self.fixture(directory)
+                check = module.LiveCheck(main.Instrument(), main.Inputs(), main.Display(),
+                                         main.storage.load_settings(False))
+                check.table = VoltageDependentTable()
+
+                def read_block(drain_duty, gate_duty):
+                    # Drain: 4 V, 10 uV; gate: 1 V, +/-100 uV across the fitted shunt.
+                    check.codes[0], check.codes[1] = 3200, 4
+                    check.codes[2], check.codes[3] = 5120, sign * 320
+
+                output = io.StringIO()
+                with patch.object(check, "_read_block", side_effect=read_block), \
+                        contextlib.redirect_stdout(output):
+                    check.residuals()
+                rows = [line.split() for line in output.getvalue().splitlines()
+                        if line.startswith("BASELINE_LIVE_RESIDUAL ")]
+                self.assertEqual(len(rows), module._PAIRS * 2)
+                for row in rows:
+                    terminal, relative, raw, reported = map(float, row[3:7])
+                    if row[2] == "gate":
+                        self.assertAlmostEqual(terminal, 1 - sign * 0.0001)
+                        self.assertAlmostEqual(raw, sign * 100 / model.GATE_SHUNT_OHM)
+                        self.assertEqual(reported, raw)
+                        self.assertEqual(row[7], "raw")
+                    else:
+                        self.assertAlmostEqual(terminal, 3.99999)
+                        self.assertAlmostEqual(raw, 10 / model.DRAIN_SHUNT_OHM)
+                        self.assertAlmostEqual(reported, 5 / model.DRAIN_SHUNT_OHM)
+                        self.assertEqual(row[7], "baseline_corrected")
+                    self.assertAlmostEqual(relative, terminal - 3.3)
+                    self.assertEqual(int(row[8]), 16)
+                self.assertEqual(set(check.table.lookups), {(0, 4000000)})
+                self.assertEqual(check.table.drive_calls.count("drain"), module._PAIRS)
+                self.assertEqual(check.table.drive_calls.count("gate"), module._PAIRS)
+                self.assertAlmostEqual(check.maximum_residual_ua[1], 100 / model.GATE_SHUNT_OHM)
+                self.assertIn("raw_uA reported_uA basis blocks", output.getvalue())
+                self.assertIn("gate_raw", output.getvalue())
 
 
 if __name__ == "__main__":

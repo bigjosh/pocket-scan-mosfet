@@ -13,7 +13,7 @@ from tests.test_model_engine import FakeInstrument, run_engine, settings
 
 
 IDENTITY = {"drain": {"address": 0x44, "die": 0x2260},
-            "gate": {"address": 0x41, "die": 0x2261}}
+            "gate": {"address": 0x40, "die": 0x2281}}
 
 
 def example(config=None):
@@ -75,6 +75,24 @@ class TableTests(unittest.TestCase):
             self.assertEqual(metadata["gate"]["max_bus_uv"], 2000000)
             self.assertNotIn("knots", metadata)
 
+    def test_drain_only_metadata_keeps_binary_and_both_zero_anchors(self):
+        table = example()
+        table.set_zero(0, 100, 0, True)
+        table.set_zero(1, 9000, 0, True)
+        table.finish()
+        original = bytes(table._data)
+        digest = table.sha256
+        metadata = table.metadata(settings())
+        self.assertEqual(metadata["version"], 2)
+        self.assertEqual(metadata["applied_to"], "drain")
+        self.assertEqual(len(metadata), 6)
+        self.assertEqual(metadata["gate"]["zero_duty_u16"], 9000)
+        self.assertTrue(metadata["gate"]["zero_valid"])
+        self.assertEqual(table.drive_duty("gate", 3.3, settings()), 9000 / 65535)
+        self.assertEqual(bytes(table._data), original)
+        self.assertEqual(table.sha256, digest)
+        self.assertEqual(len(original), 1720)
+
     def test_missing_corrupt_truncated_oversize_and_semantically_invalid_fail_closed(self):
         table = example()
         with tempfile.TemporaryDirectory() as directory:
@@ -115,6 +133,53 @@ class TableTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 cb.Baseline().save(path)
             self.assertEqual(Path(path).read_bytes(), original)
+
+    def test_previous_sensor_baseline_loads_but_never_corrects_or_anchors(self):
+        table = example()
+        # Reconstruct the earlier dual-INA226 physical-unit file: original
+        # gate resistor, 0x41 identity and zero-filled reserved ADC words.
+        table._put(32, 638000000)
+        struct.pack_into("<HH", table._data, 68, 0x41, 0x2260)
+        for offset in cb._ADC_OFFSETS:
+            table._put(offset, 0)
+        table.set_zero(1, 8300, 0, True)
+        table.finish()
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "baseline.bin")
+            table.save(path)
+            loaded = cb.Baseline()
+            self.assertTrue(loaded.load(path))
+            self.assertTrue(loaded.available)
+            self.assertFalse(loaded.compatible(settings()))
+            self.assertFalse(loaded.compatible(settings(), IDENTITY))
+            self.assertIsNone(loaded.metadata(settings()))
+            self.assertEqual(loaded.drive_duty("gate", 3.3, settings()),
+                             model.drive_duty("gate", 3.3))
+
+    def test_shunt_timing_range_and_sensor_identity_are_fingerprinted(self):
+        for offset, value in ((32, 101000000), (104, 1100)):
+            table = example()
+            table._put(offset, value)
+            table.finish()
+            self.assertFalse(table.compatible(settings(), IDENTITY))
+        table = example()
+        self.assertFalse(table.compatible(settings(), {
+            "drain": IDENTITY["drain"], "gate": {"address": 0x40, "die": 0x2282}}))
+        table._put(112, 40960)  # Narrow INA228 range is unsupported.
+        with self.assertRaisesRegex(ValueError, "ADC"):
+            table.finish()
+
+    def test_gate_range_uses_ina228_limits_while_drain_keeps_ina226_limits(self):
+        table = example()
+        table.add_knot(1, 85000000, 100000000, 65535)
+        table.finish()
+        self.assertEqual(table.offset_nv(1, 85000000), 100000000)
+        for role, bus, shunt in ((0, 42000000, 0), (0, 3000000, 81920000),
+                                 (1, 103000000, 0), (1, 86000000, 163840000)):
+            invalid = example()
+            invalid.add_knot(role, bus, shunt, 65535)
+            with self.assertRaisesRegex(ValueError, "knot"):
+                invalid.finish()
 
     def test_clipped_duplicates_do_not_grow_or_break_lookup(self):
         table = cb.Baseline()
@@ -197,11 +262,12 @@ class CodeInstrument:
     def read_codes_into(self, buffer):
         self.reads += 1
         if self.saturation:
-            raise OverrangeError("gate", "shunt_saturation", 32767, 1, 32767 * 2.5e-6, "V")
+            raise OverrangeError("gate", "shunt_saturation", 524287, 1, 524287 * 0.3125e-6, "V")
         for role in range(2):
             voltage = min(16.8, (self.drain_floor + 22.44 * self.duties[0] if role == 0 else
                                 25.74 * self.duties[1]))
-            buffer[role * 2] = int(voltage / 0.00125 + 0.5)
+            bus_lsb = 0.00125 if role == 0 else 0.0001953125
+            buffer[role * 2] = int(voltage / bus_lsb + 0.5)
             # Deliberately nonconstant baseline, with gate parasitic ~8uA.
             buffer[role * 2 + 1] = (2 if role == 0 else 2000) + buffer[role * 2] // 100
 
@@ -222,15 +288,78 @@ def run_calibration(instrument, config=None):
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_gate_fractional_lsb_rounds_once_after_native_code_averaging(self):
+        class OneReadInstrument(CodeInstrument):
+            def poll_measurement(self):
+                return True
+
+            def read_codes_into(self, buffer):
+                buffer[0], buffer[1], buffer[2], buffer[3] = 800, 2, 101, self.sign
+
+        for sign in (-1, 1):
+            hw = OneReadInstrument()
+            hw.sign = sign
+            runner = cb.Calibrator(hw, settings())
+            runner.start()
+            runner._role, runner.channel = 1, "gate"
+            runner.phase = "convert"
+            runner._blocks, runner._bus_sum, runner._shunt_sum = 3, 300, 0
+            code_buffer_id = id(runner._codes)
+            runner.tick(0)
+            self.assertEqual(runner._candidate.bus_uv(1, 0), 19580)
+            self.assertEqual(runner._candidate.shunt_nv(1, 0), sign * 78)
+            self.assertEqual(id(runner._codes), code_buffer_id)
+
+    def test_gate_twenty_bit_codes_and_fitted_shunt_are_scaled(self):
+        class OneReadInstrument(CodeInstrument):
+            def poll_measurement(self):
+                return True
+
+            def read_codes_into(self, buffer):
+                # 85 V bus; 100 uV shunt across the fitted 98.8 ohms ~= 1.01215 uA.
+                buffer[0], buffer[1], buffer[2], buffer[3] = 800, 2, 435200, 320
+
+        runner = cb.Calibrator(OneReadInstrument(), settings())
+        runner.start()
+        runner._role, runner.channel, runner.phase = 1, "gate", "convert"
+        runner._blocks, runner._bus_sum, runner._shunt_sum = 3, 435200 * 3, 320 * 3
+        runner.tick(0)
+        self.assertEqual(runner._candidate.bus_uv(1, 0), 85000000)
+        self.assertEqual(runner._candidate.shunt_nv(1, 0), 100000)
+        self.assertEqual(runner._candidate.terminal_uv(1, 0), 84999900)
+        self.assertAlmostEqual(runner._candidate.shunt_nv(1, 0) / 1e9 / model.GATE_SHUNT_OHM,
+                               1.0121457489878543e-6, places=13)
+
+    def test_native_and_portable_voltage_readbacks_use_identical_gate_codes(self):
+        class VoltageInstrument(CodeInstrument):
+            read_codes_into = None
+
+            def read_pair(self):
+                codes = [0, 0, 0, 0]
+                CodeInstrument.read_codes_into(self, codes)
+                return {"drain": {"bus_v": codes[0] * 0.00125,
+                                   "shunt_v": codes[1] * 0.0000025},
+                        "gate": {"bus_v": codes[2] * 0.0001953125,
+                                  "shunt_v": codes[3] * 0.0000003125}}
+
+        native, portable = CodeInstrument(), VoltageInstrument()
+        native.duties = portable.duties = [0.2, 0.4]
+        direct = cb.Calibrator(native, settings())
+        fallback = cb.Calibrator(portable, settings())
+        direct._read()
+        fallback._read()
+        self.assertEqual(direct._codes, fallback._codes)
+        self.assertGreater(direct._codes[2], 32767)
+
     def test_zero_search_samples_correct_a_bias_kink_missed_by_bulk_interpolation(self):
         class KinkInstrument(CodeInstrument):
             def read_codes_into(self, buffer):
                 super().read_codes_into(buffer)
-                bus_uv = buffer[2] * 1250
+                bus_uv = cb._round_div(buffer[2] * 3125, 16)
                 # Representative supply-adjacent transition: a bulk-only
                 # table invents a ramp across a much narrower actual change.
                 fraction = min(1.0, max(0.0, (bus_uv - 3180000) / 70000))
-                buffer[3] = 559 + int(1382 * fraction)
+                buffer[3] = 4472 + int(11056 * fraction)
 
         hw = KinkInstrument()
         runner, _ = run_calibration(hw)
@@ -240,7 +369,8 @@ class CalibrationTests(unittest.TestCase):
         hw.duties[1] = metadata["gate"]["zero_duty_u16"] / 65535
         observed = [0, 0, 0, 0]
         hw.read_codes_into(observed)
-        bus_uv, shunt_nv = observed[2] * 1250, observed[3] * 2500
+        bus_uv = cb._round_div(observed[2] * 3125, 16)
+        shunt_nv = cb._round_div(observed[3] * 625, 2)
         refined_error_ua = abs(shunt_nv - runner.result.offset_nv(1, bus_uv)) / 1000 / model.GATE_SHUNT_OHM
         coarse = cb.Baseline()
         coarse.begin(settings(), IDENTITY)
@@ -250,7 +380,8 @@ class CalibrationTests(unittest.TestCase):
             duty = cb.sweep_duty_u16(index)
             hw.duties[1] = duty / 65535
             hw.read_codes_into(observed)
-            coarse.add_knot(1, observed[2] * 1250, observed[3] * 2500, duty)
+            coarse.add_knot(1, cb._round_div(observed[2] * 3125, 16),
+                            cb._round_div(observed[3] * 625, 2), duty)
         coarse.finish()
         coarse_error_ua = abs(shunt_nv - coarse.offset_nv(1, bus_uv)) / 1000 / model.GATE_SHUNT_OHM
         self.assertGreater(coarse_error_ua, 1.0)
@@ -309,7 +440,7 @@ class CalibrationTests(unittest.TestCase):
 
 
 class CorrectedEngineTests(unittest.TestCase):
-    def test_corrects_both_currents_preserves_raw_terminal_voltage_and_raw_fallback(self):
+    def test_corrects_drain_only_preserves_raw_gate_voltage_and_raw_fallback(self):
         config = settings()
         table = example(config)
         hardware = FakeInstrument(drain_current=0.001, gate_current=10e-6)
@@ -317,13 +448,15 @@ class CorrectedEngineTests(unittest.TestCase):
         engine = Engine(hardware, baseline=table)
         metadata = engine.current_correction(config)
         self.assertEqual(metadata["sha256"], table.sha256)
+        self.assertEqual(metadata["version"], 2)
+        self.assertEqual(metadata["applied_to"], "drain")
         engine.start_scan(config)
         events = run_engine(engine, hardware)
         row = next(row for kind, row in events if kind == "point")
         self.assertAlmostEqual(row["vds"], row["requested_vds"])
         self.assertAlmostEqual(row["vgs"], row["requested_vgs"])
         self.assertAlmostEqual(row["id_a"], 0.001 - 2000e-9 / model.DRAIN_SHUNT_OHM)
-        self.assertAlmostEqual(row["ig_a"], 10e-6 - 4000e-9 / model.GATE_SHUNT_OHM)
+        self.assertAlmostEqual(row["ig_a"], 10e-6)
         hardware = FakeInstrument(drain_current=0.001, gate_current=10e-6)
         hardware.identity = IDENTITY
         engine = Engine(hardware, baseline=table)
@@ -337,7 +470,7 @@ class CorrectedEngineTests(unittest.TestCase):
     def test_raw_saturation_cannot_be_subtracted_away(self):
         hw = FakeInstrument()
         hw.identity = IDENTITY
-        hw.read_error = OverrangeError("gate", "shunt_saturation", 32767, 1, 32767 * 2.5e-6, "V")
+        hw.read_error = OverrangeError("gate", "shunt_saturation", 524287, 1, 524287 * 0.3125e-6, "V")
         engine = Engine(hw, baseline=example())
         engine.start_scan(settings())
         events = run_engine(engine, hw)

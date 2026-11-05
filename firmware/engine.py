@@ -1,6 +1,7 @@
 """Cooperative direct-drive scanner: one settled hardware average per point.
 
-Optional open-output baseline subtraction changes current only. PWM uses
+Optional open-output baseline subtraction changes drain current only; gate
+current uses the raw INA228 shunt reading. PWM uses
 nominal resistor gain, optionally anchored at a captured source-relative zero.
 Reported ADC endpoints and communication failures still stop outputs.
 Instrument supplies set_duty, begin_measurement, poll_measurement, poll_alerts,
@@ -44,10 +45,11 @@ class OverrangeError(Exception):
         if limit_value <= 0:
             raise ValueError("Invalid overrange limit")
         if (isinstance(raw_code, bool) or not isinstance(raw_code, int) or
-                not 0 <= raw_code <= 65535 or limit_unit != "V" or measured_value is not None):
+                not 0 <= raw_code <= 0xfffff or limit_unit != "V" or measured_value is not None):
             raise ValueError("Invalid ADC overrange")
-        if ((kind == "shunt_saturation" and (raw_code not in (0x7fff, 0x8000) or
-                sign != (1 if raw_code == 0x7fff else -1))) or
+        endpoint = 0x80000 if channel == "gate" else 0x8000
+        if ((kind == "shunt_saturation" and (raw_code not in (endpoint - 1, endpoint) or
+                sign != (1 if raw_code == endpoint - 1 else -1))) or
                 (kind == "bus_saturation" and (raw_code != 0x7fff or sign != 1))):
             raise ValueError("Invalid ADC saturation code")
         message = channel + (" shunt ADC saturated" if kind == "shunt_saturation" else " bus ADC saturated")
@@ -254,10 +256,10 @@ class Engine:
         if baseline is not None:
             drain_bus_uv = (pair["drain"]["bus_code"] * 1250 if "bus_code" in pair["drain"] else
                             int(pair["drain"]["bus_v"] * 1000000 + 0.5))
-            gate_bus_uv = (pair["gate"]["bus_code"] * 1250 if "bus_code" in pair["gate"] else
-                           int(pair["gate"]["bus_v"] * 1000000 + 0.5))
             drain_shunt -= baseline.offset_nv(0, drain_bus_uv) / 1000000000
-            gate_shunt -= baseline.offset_nv(1, gate_bus_uv) / 1000000000
+        # The INA228's measured gate offset is small enough to use directly.
+        # Its saved table remains available for the source-relative zero anchor,
+        # but is never looked up or subtracted from a gate current measurement.
         result = {"vds": pair["drain"]["terminal_v"] - source,
                   "vgs": pair["gate"]["terminal_v"] - source,
                   "id_a": drain_shunt / model.DRAIN_SHUNT_OHM,
@@ -292,7 +294,7 @@ class Engine:
             # A delayed display tick must accept an already finished block.
             if not self.instrument.poll_measurement():
                 if self._clock >= self._measurement_deadline:
-                    raise ValueError("INA226 conversion timed out")
+                    raise ValueError("Sensor conversion timed out")
                 return []
             self._measurement_waiting = False
             pair = self._checked_read()

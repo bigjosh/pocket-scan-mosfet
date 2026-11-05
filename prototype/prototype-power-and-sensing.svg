@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1550" viewBox="0 0 1600 1550">
-<title>Prototype G - battery supply, relay and 3.3 V reference</title>
+<title>Prototype H - battery supply, relay and 3.3 V reference</title>
 <style>text{font-family:Arial,Helvetica,sans-serif}.wire{fill:none;stroke:#236b69;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}</style>
 <rect width="1600" height="1550" fill="#fff"/>
-<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Prototype G - battery supply, relay and 3.3 V reference</text>
+<text x="40" y="49" font-size="30" fill="#172b3a" text-anchor="start" font-weight="bold">Prototype H - battery supply, relay and 3.3 V reference</text>
 <text x="40" y="81" font-size="18" fill="#526674" text-anchor="start" font-weight="normal">All ground symbols join Pico GND / physical pin 38. Battery negative is at GND, not at the source reference.</text>
 <rect x="30" y="110" width="750" height="625" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
 <text x="50" y="142" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">2 x 9 V battery stack and normally open contact</text>
@@ -95,28 +95,28 @@
 <text x="840" y="663" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Source and R13 share 3.3 V; source connection confirmed.</text>
 <rect x="30" y="765" width="1540" height="275" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
 <text x="50" y="797" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Readback - optional current baseline and actual terminal voltages</text>
-<text x="60" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">INA_D - address 0x44</text>
+<text x="60" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">INA226 drain - address 0x44</text>
 <text x="60" y="875" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS = D_DRV; IN+ = D_DRV</text>
 <text x="60" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">IN- = DUT D; shunt nominal 1 ohm</text>
 <text x="60" y="937" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Id = (VSH_D - baseline_D) / 0.789</text>
 <text x="60" y="968" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VD = VBUS_D - raw VSH_D</text>
-<text x="570" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">INA_G - address 0x41</text>
+<text x="570" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">INA228 gate - address 0x40</text>
 <text x="570" y="875" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VBUS = G_DRV; IN+ = G_DRV</text>
-<text x="570" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">IN- = DUT G; shunt nominal 680 ohm</text>
-<text x="570" y="937" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Ig = (VSH_G - baseline_G) / 638</text>
+<text x="570" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">IN- = DUT G; fitted 98.8 ohm shunt</text>
+<text x="570" y="937" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Ig = (VSH_G - baseline_G) / 98.8</text>
 <text x="570" y="968" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VG = VBUS_G - raw VSH_G</text>
 <text x="1080" y="833" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Source-relative measurements</text>
 <text x="1080" y="875" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VDS = VD - configured VS</text>
 <text x="1080" y="906" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VGS = VG - configured VS</text>
 <text x="1080" y="937" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VS = measured 3.3 V rail, entered manually</text>
 <text x="1080" y="968" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">No ADC3 source or battery-rail readback</text>
-<text x="60" y="1012" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">VSH = IN+ - IN-. Current may subtract open-output baseline. Stops use raw shunt codes 0x7fff / 0x8000.</text>
+<text x="60" y="1012" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">Endpoint codes: drain 0x7fff / 0x8000; gate 0x7ffff / 0x80000 (20-bit). Calibration needs refreshing.</text>
 <rect x="30" y="1070" width="750" height="360" rx="7" fill="#f5f8f8" stroke="#cbd7db" stroke-width="1.3"/>
 <text x="50" y="1102" font-size="21" fill="#172b3a" text-anchor="start" font-weight="bold">Logic / I2C / breakout wiring</text>
 <text x="55" y="1135" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">INA VCC -&gt; Pico 3V3; INA GND -&gt; Pico GND.</text>
 <text x="55" y="1168" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">SDA -&gt; GP18 / pin 24; SCL -&gt; GP19 / pin 25.</text>
 <text x="55" y="1201" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Breakout pull-ups already fitted; no external pull-ups.</text>
-<text x="55" y="1234" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">A1/A0: drain = 3V3/GND; gate = GND/3V3.</text>
+<text x="55" y="1234" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">A1/A0: drain = 3V3/GND; gate = GND/GND.</text>
 <text x="55" y="1267" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">100nF at each INA supply; ALE / ALERT unused.</text>
 <text x="55" y="1300" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Each INA VBUS joins its IN+ (not Pico USB VBUS).</text>
 <text x="55" y="1333" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">VSYS / pin 39 and VBUS / pin 40 are not analog rails.</text>
@@ -134,5 +134,5 @@
 <text x="835" y="1359" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Relay power removal is not drain/gate isolation.</text>
 <text x="835" y="1387" font-size="18" fill="#172b3a" text-anchor="start" font-weight="normal">Power sequencing / hardware compliance need verification.</text>
 <text x="40" y="1475" font-size="18" fill="#a95018" text-anchor="start" font-weight="normal">An unpowered LM358 may load a biased-source DUT through its body diode. Relay delay / rail collapse need separate verification.</text>
-<text x="40" y="1528" font-size="16" fill="#526674" text-anchor="start" font-weight="normal">Revision G | Docs 2026-11-03 | Source / module control wiring confirmed; relay internals and power transients unverified</text>
+<text x="40" y="1528" font-size="16" fill="#526674" text-anchor="start" font-weight="normal">Revision H | Docs 2026-11-04 | I2C identities verified; analog checks pending | Relay internals and power transients unverified</text>
 </svg>

@@ -101,6 +101,14 @@ function baselineFixture(count = 3) {
   return scan;
 }
 
+function drainBaselineFixture(count = 3) {
+  const scan = baselineFixture(count);
+  Object.assign(scan.acquisition, {acquisition_mode: 'ina226_ina228_triggered_v1',
+    gate_bus_conversion_us: 1052, gate_shunt_conversion_us: 1052});
+  Object.assign(scan.current_correction, {version: 2, applied_to: 'drain'});
+  return scan;
+}
+
 function assertRaw(env, scan, ack) {
   assert.equal(ack.ok, true);
   assert.equal(ack.scan_id, scan.scan_id);
@@ -1951,5 +1959,161 @@ test('partial and zero-point receipts recover across every interrupted mutation 
       env.resetFault(); assertPartial(env, scan, env.post(scan));
       assert.equal(env.operations.length, 0);
     }
+  }
+});
+
+
+test('mixed INA226/INA228 scans preserve per-channel timing and both charts', () => {
+  for (const corrected of [false, true]) {
+    const scan = corrected ? baselineFixture() : rawFixture();
+    Object.assign(scan.acquisition, {acquisition_mode: 'ina226_ina228_triggered_v1',
+      gate_bus_conversion_us: 1052, gate_shunt_conversion_us: 1052});
+    const env = environment();
+    assert.equal(env.post(scan).ok, true);
+    const sheet = env.scans()[0];
+    assert.deepEqual(JSON.parse(sheet.cell(1, 5)), scan.acquisition);
+    assert.equal(sheet.charts.length, 2);
+    env.context.addScanCharts();
+    assert.equal(sheet.charts.length, 2);
+  }
+});
+
+test('mixed gate saturation accepts 20-bit endpoints and rejects wrong channel or scale', () => {
+  for (const sign of [1, -1]) {
+    const scan = rawFixture(1);
+    Object.assign(scan.acquisition, {acquisition_mode: 'ina226_ina228_triggered_v1',
+      gate_bus_conversion_us: 1052, gate_shunt_conversion_us: 1052});
+    Object.assign(scan.fault, {channel: 'gate', sign, raw_code: sign > 0 ? 0x7ffff : 0x80000,
+      limit_value: (sign > 0 ? 0x7ffff : 0x80000) * 0.0000003125});
+    const env = environment();
+    assert.equal(env.post(scan).ok, true);
+    env.context.addScanCharts();
+    assert.equal(env.scans()[0].charts.length, 2);
+    for (const change of [s => {s.fault.channel = 'drain';},
+      s => {s.fault.raw_code = sign > 0 ? 0x7fff : 0x8000;},
+      s => {s.fault.limit_value = 0.08192;},
+      s => {delete s.acquisition.gate_bus_conversion_us;},
+      s => {s.acquisition.gate_shunt_conversion_us = 1100;},
+      s => {s.acquisition.acquisition_mode = 'ina226_triggered_v1';}]) {
+      const bad = JSON.parse(JSON.stringify(scan)); change(bad);
+      const rejected = environment();
+      assert.equal(rejected.post(bad).ok, false);
+      assert.equal(rejected.operations.length, 0);
+    }
+  }
+});
+
+
+test('baseline provenance accepts the INA228 positive bus-code ceiling only on gate', () => {
+  const scan = baselineFixture();
+  Object.assign(scan.acquisition, {acquisition_mode: 'ina226_ina228_triggered_v1',
+    gate_bus_conversion_us: 1052, gate_shunt_conversion_us: 1052});
+  scan.current_correction.gate.max_bus_uv = 102399805;
+  assert.equal(environment().post(scan).ok, true);
+  for (const change of [s => {s.current_correction.gate.max_bus_uv++;},
+    s => {s.current_correction.drain.max_bus_uv = 102399805;}]) {
+    const bad = JSON.parse(JSON.stringify(scan)); change(bad);
+    assert.equal(environment().post(bad).ok, false);
+  }
+});
+
+test('drain-only correction records scope and raw Ig without changing submitted measurements', () => {
+  for (const count of [1, 3]) {
+    const env = environment(), scan = drainBaselineFixture(count);
+    scan.points[0] = [0.123, -0.456, -2e-6, 7.8e-6];
+    const ack = env.post(scan), sheet = env.scans()[0];
+    assert.equal(ack.ok, true);
+    assert.equal(ack.sha256, crypto.createHash('sha256').update(JSON.stringify(scan)).digest('hex'));
+    assert.equal(sheet.cell(12, 2), 'drain_baseline_corrected_gate_raw');
+    assert.deepEqual(JSON.parse(sheet.cell(2, 5)), scan.current_correction);
+    assert.deepEqual(sheet.getRange(16, 5, 1, 4).getValues()[0], scan.points[0]);
+    assert.equal(env.index().cell(2, 12), scan.current_correction.sha256);
+    assert.match(sheet.cell(47, 19), /Drain current uses open-output baseline correction; gate current is raw/);
+    assert.match(sheet.cell(49, 19), /maximum absolute raw Ig/);
+    assert.equal(sheet.charts[0].options.vAxis.title, 'Baseline-corrected Id (mA)');
+    assert.equal(sheet.charts[1].options.vAxis.title, 'Maximum raw |Ig| (uA)');
+    assert.equal(JSON.parse(sheet.metadata[0].value).current_correction_applied_to, 'drain');
+    env.resetFault(); assert.deepEqual(env.post(scan), ack); env.context.addScanCharts();
+    assert.equal(env.operations.length, 0);
+    const conflict = structuredClone(scan);
+    conflict.current_correction.version = 1; delete conflict.current_correction.applied_to;
+    assert.deepEqual(env.post(conflict), {ok: false, error: 'scan_conflict'});
+  }
+});
+
+test('correction scope rejects missing, unsupported, extra and version-conflicting metadata before writes', () => {
+  for (const change of [s => {delete s.current_correction.applied_to;},
+    s => {s.current_correction.applied_to = 'gate';},
+    s => {s.current_correction.applied_to = 'both';},
+    s => {s.current_correction.applied_to = ['drain'];},
+    s => {s.current_correction.version = 1;},
+    s => {s.current_correction.version = 3;},
+    s => {s.current_correction.extra = false;},
+    s => {delete s.current_correction.gate;},
+    s => {s.current_correction.gate.applied_to = false;},
+    s => {s.schema_version = 4;}]) {
+    const env = environment(), scan = drainBaselineFixture(); change(scan);
+    assert.equal(env.post(scan).ok, false, String(change));
+    assert.equal(env.opened.length, 0); assert.equal(env.operations.length, 0);
+  }
+});
+
+test('drain-only chart repair preserves historical raw and both-corrected tabs', () => {
+  const env = environment(), old = [];
+  for (const [i, scan] of [rawFixture(), baselineFixture()].entries()) {
+    scan.scan_id = 'abcd-' + (1000 + i);
+    assert.equal(env.post(scan).ok, true);
+    const sheet = env.scans().at(-1);
+    old.push({sheet, before: {cells: [...sheet.cells], metadata: sheet.metadata.map(m=>m.value),
+      chartIds: sheet.charts.map(c=>c.id)}});
+  }
+  const scan = drainBaselineFixture();
+  assert.equal(env.post(scan).ok, true);
+  const sheet = env.scans().at(-1), raw = sheet.getRange(1, 1, 18, 8).getValues();
+  sheet.charts = []; sheet.metadata = []; sheet.deleteColumns(9, sheet.cols - 8);
+  env.context.addScanCharts();
+  assert.equal(sheet.charts.length, 2);
+  assert.match(sheet.cell(49, 19), /raw Ig/);
+  assert.equal(sheet.charts[1].options.vAxis.title, 'Maximum raw |Ig| (uA)');
+  // D3 is the intentionally restored navigation link.
+  raw[2][3] = sheet.cell(3, 4);
+  assert.deepEqual(sheet.getRange(1, 1, 18, 8).getValues(), raw);
+  for (const {sheet, before} of old) assert.deepEqual({cells: [...sheet.cells],
+    metadata: sheet.metadata.map(m=>m.value), chartIds: sheet.charts.map(c=>c.id)}, before);
+  const metadata = JSON.parse(sheet.metadata[0].value); delete metadata.current_correction_applied_to;
+  sheet.metadata[0].setValue(JSON.stringify(metadata));
+  sheet.getRange(49, 19).setValue('Incorrect old scope');
+  env.context.addScanCharts();
+  assert.equal(sheet.charts.length, 2);
+  assert.match(sheet.cell(49, 19), /raw Ig/);
+});
+
+test('saved correction scope must agree with measurement-mode label before chart repair', () => {
+  for (const scan of [baselineFixture(), drainBaselineFixture()]) {
+    const env = environment(); assert.equal(env.post(scan).ok, true);
+    const sheet = env.scans()[0], data = sheet.getRange(16, 1, 3, 8).getValues();
+    const oldCharts = sheet.charts.map(c=>c.id);
+    sheet.getRange(12, 2).setValue(scan.current_correction.version === 1 ?
+      'drain_baseline_corrected_gate_raw' : 'baseline_corrected');
+    assert.throws(() => env.context.addScanCharts(), /Some scan charts need attention/);
+    assert.deepEqual(sheet.charts.map(c=>c.id), oldCharts);
+    assert.deepEqual(sheet.getRange(16, 1, 3, 8).getValues(), data);
+  }
+});
+
+test('drain-only receipt recovers interruption with exact scope and raw gate labels', () => {
+  const scan = drainBaselineFixture(1), complete = environment();
+  assert.equal(complete.post(scan).ok, true);
+  for (let at = 1; at <= complete.operations.length; at++) for (const before of [true, false]) {
+    const env = environment(); env.resetFault(at, before); env.post(scan); env.resetFault();
+    const ack = env.post(scan), sheet = env.scans()[0];
+    assert.equal(ack.ok, true, 'mutation ' + at);
+    assert.equal(env.scans().length, 1);
+    assert.equal(sheet.cell(12, 2), 'drain_baseline_corrected_gate_raw');
+    assert.deepEqual(JSON.parse(sheet.cell(2, 5)), scan.current_correction);
+    assert.match(sheet.cell(49, 19), /raw Ig/);
+    assert.equal(sheet.charts.length, 2);
+    env.resetFault(); assert.deepEqual(env.post(scan), ack);
+    assert.equal(env.operations.length, 0);
   }
 });

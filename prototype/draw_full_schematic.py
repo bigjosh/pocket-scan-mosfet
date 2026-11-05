@@ -1,6 +1,6 @@
-"""Revision G: fitted 1k 5% drain filter, 3.3 V source and switched 2x9 V supply.
+"""Revision H: INA226 drain, INA228 gate, 3.3 V source and switched 2x9 V supply.
 
-INA226 numbers are DGS-10 IC pins, not unknown breakout-header positions.
+INA226/INA228 numbers are DGS-10 IC pins, not unknown breakout-header positions.
 J1 is our test-fixture connector; its numbers do not describe a MOSFET package.
 Relay-module terminals are functional labels, not unverified header positions.
 Source wiring and direct-drive equations are documented in
@@ -34,20 +34,20 @@ COMPONENTS = {
     'A1': {'part': 'Pico 2 W (scanner connections only)', 'pins': {'24':'GP18 / I2C1 SDA','25':'GP19 / I2C1 SCL','26':'GP20 / PWM_D','27':'GP21 / PWM_G','36':'3V3(OUT)','38':'GND'}},
     'U1': {'part': 'LM358P / PDIP-8', 'pins': {'1':'OUT1','2':'IN1-','3':'IN1+','4':'V-','5':'IN2+','6':'IN2-','7':'OUT2','8':'V+'}},
     'U2': {'part': 'INA226 drain / DGS-10 IC', 'pins': {'1':'A1','2':'A0','3':'ALERT','4':'SDA','5':'SCL','6':'VS (logic supply)','7':'GND','8':'VBUS','9':'IN-','10':'IN+'}},
-    'U3': {'part': 'INA226 gate / DGS-10 IC', 'pins': {'1':'A1','2':'A0','3':'ALERT','4':'SDA','5':'SCL','6':'VS (logic supply)','7':'GND','8':'VBUS','9':'IN-','10':'IN+'}},
+    'U3': {'part': 'INA228 gate / DGS-10 IC', 'pins': {'1':'A1','2':'A0','3':'ALERT','4':'SDA','5':'SCL','6':'VS (logic supply)','7':'GND','8':'VBUS','9':'IN-','10':'IN+'}},
     'J1': {'part': 'Removable DUT fixture connector', 'pins': {'1':'D','2':'G','3':'S'}},
     'B1': {'part': '9 V battery, lower half of series pack', 'pins': {'+':'positive','-':'negative'}},
     'B2': {'part': '9 V battery, upper half of series pack', 'pins': {'+':'positive','-':'negative'}},
     'K1': {'part': 'Relay module, ASIN B0F3TM3RZ6; used external terminals only', 'product_url': 'https://www.amazon.com/dp/B0F3TM3RZ6', 'pins': {'VCC':'module supply','ACTIVATE':'module enable input','GND':'module ground','COM':'used contact common','NO':'used normally open contact'}},
 }
-for ref, value in [('R1','1k 5% fitted'),('R3','68k'),('R4','10k'),('R5','1 ohm nominal; installed current scale 0.789 ohm'),('R6','1k nominal; not remeasured'),('R8','68k'),('R9','10k'),('R10','680 ohm nominal; provisional scale 638 ohm'),('R13','6.8k')]:
+for ref, value in [('R1','1k 5% fitted'),('R3','68k'),('R4','10k'),('R5','1 ohm nominal; installed current scale 0.789 ohm'),('R6','1k nominal; not remeasured'),('R8','68k'),('R9','10k'),('R10','98.8 ohm measured replacement gate shunt; 100 ohm 1% recommended nominal'),('R13','6.8k')]:
     COMPONENTS[ref] = {'part': value, 'pins': {'1':'terminal 1','2':'terminal 2'}}
 for ref, value in [('C1','10uF, >=10V; ceramic preferred'),('C3','10uF, >=10V; ceramic preferred'),('C5','100nF, 50V'),('C6','10uF, 50V, polarized'),('C7','100nF, >=10V'),('C8','100nF, >=10V')]:
     COMPONENTS[ref] = {'part': value, 'pins': {'1':'+' if ref=='C6' else 'terminal 1','2':'-' if ref=='C6' else 'terminal 2'}}
 
 NETS = {
-    'GND': ['A1.38','U1.4','U2.2','U2.7','U3.1','U3.7','R4.2','R9.2','C1.2','C3.2','C5.2','C6.2','C7.2','C8.2','B1.-','K1.GND'],
-    '+3V3_VS': ['A1.36','J1.3','R13.1','U2.1','U2.6','U3.6','U3.2','C7.1','C8.1','K1.VCC','K1.ACTIVATE'],
+    'GND': ['A1.38','U1.4','U2.2','U2.7','U3.1','U3.2','U3.7','R4.2','R9.2','C1.2','C3.2','C5.2','C6.2','C7.2','C8.2','B1.-','K1.GND'],
+    '+3V3_VS': ['A1.36','J1.3','R13.1','U2.1','U2.6','U3.6','C7.1','C8.1','K1.VCC','K1.ACTIVATE'],
     'BAT_MID': ['B1.+','B2.-'],
     'BAT_18_RAW': ['B2.+','K1.COM'],
     'LM_VPLUS': ['K1.NO','U1.8','C5.1','C6.1'],
@@ -109,7 +109,7 @@ class Drawing(Sheet):
 
     def finish(self):
         self.wire((40,H-60),(W-40,H-60))
-        self.text(40,H-30,'Pocket MOSFET scanner | G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Optional current baseline; raw INA shunt stops',18,MUTED)
+        self.text(40,H-30,'Pocket MOSFET scanner | H | Docs 2026-11-04 | INA228 gate / 98.8 ohm fitted | C5 fitted; C6 unconfirmed',18,MUTED)
         self.text(W-40,H-30,f'Sheet {self.page} / 4',18,MUTED,anchor='end')
         self.items.append('</svg>')
         target = OUT/(self.name+'.svg')
@@ -120,7 +120,7 @@ class Drawing(Sheet):
 def analog_channel(s,dy,gate=False):
     y=lambda a:a+dy
     r0,c0 = (5,2) if gate else (0,0)
-    name,unit,ina,addr,pp,pm,po,gpio,phys,jpin,sh = ('G','U1B','U3','0x41',5,6,7,21,27,2,'680 ohm') if gate else ('D','U1A','U2','0x44',3,2,1,20,26,1,'1 ohm')
+    name,unit,ina,addr,pp,pm,po,gpio,phys,jpin,sh = ('G','U1B','U3','0x40',5,6,7,21,27,2,'98.8 ohm') if gate else ('D','U1A','U2','0x44',3,2,1,20,26,1,'1 ohm')
     s.box(35,y(120),1930,535,f'{"Gate" if gate else "Drain"} drive and current / voltage sensing')
     s.text(65,y(220),f'A1 pin {phys}',21,weight='bold')
     s.text(65,y(248),f'GP{gpio} / PWM_{name}',20)
@@ -146,7 +146,7 @@ def analog_channel(s,dy,gate=False):
     s.terminal(1880,y(335))
     s.text(1810,y(306),f'J1.{jpin}  {name}',22,weight='bold')
     s.label(1780,y(370),f'DUT_{name}')
-    s.box(1370,y(135),380,135,f'{ina}:S  INA226  {addr}',fill='#eaf4f3')
+    s.box(1370,y(135),380,135,f'{ina}:S  {"INA228" if gate else "INA226"}  {addr}',fill='#eaf4f3')
     s.text(1390,y(193),'Other pins: sheet 2',17,MUTED)
     s.text(1385,y(225),'8 VBUS',18)
     s.text(1460,y(253),'10 IN+',18)
@@ -171,8 +171,8 @@ def analog_channel(s,dy,gate=False):
         'VBUS pin 8 and IN+ pin 10 are BEFORE the shunt.',
         'IN- pin 9 is on the DUT side. Use Kelvin sense wires.',
         f'V{name} = VBUS_{name} - VSH_{name}; subtract VS for V{name}S.',
-        'Remove the original R100 shunt; do not parallel it.',
-        'Ig = (VSH_G - baseline_G) / 638 ohm when calibrated.' if gate else 'Id = (VSH_D - baseline_D) / 0.789 ohm when calibrated.',
+        'Gate: 98.8 ohm measured; stock shunt replaced.' if gate else 'Remove the original R100 shunt; do not parallel it.',
+        'Ig = (VSH_G - baseline_G) / 98.8 ohm when calibrated.' if gate else 'Id = (VSH_D - baseline_D) / 0.789 ohm when calibrated.',
     ],19,gap=33)
 
 
@@ -181,13 +181,13 @@ def page_analog():
               'Pin numbers and names are shown at active devices. Identical net labels connect across sheets. U1A/U1B are the same LM358P.')
     analog_channel(s,0)
     analog_channel(s,660,True)
-    s.text(45,1340,'INA226 numbers are IC pins, not breakout-header positions. J1 pins 1/2/3 = D/G/S are our fixture assignment, not a MOSFET package pinout.',18,ACCENT)
+    s.text(45,1340,'INA226/INA228 numbers are IC pins, not breakout-header positions. J1 pins 1/2/3 = D/G/S are our fixture assignment, not a MOSFET package pinout.',18,ACCENT)
     return s.finish()
 
 
 def logic_monitor(s,x,ref,gate):
-    s.box(x,675,320,505,f'{ref}:L  INA226 logic')
-    pins=[('6','VS / VCC','+3V3_VS'),('7','GND','GND'),('4','SDA','I2C_SDA'),('5','SCL','I2C_SCL'),('1','A1','GND' if gate else '+3V3_VS'),('2','A0','+3V3_VS' if gate else 'GND'),('3','ALERT','NC')]
+    s.box(x,675,320,505,f'{ref}:L  {"INA228" if gate else "INA226"} logic')
+    pins=[('6','VS / VCC','+3V3_VS'),('7','GND','GND'),('4','SDA','I2C_SDA'),('5','SCL','I2C_SCL'),('1','A1','GND' if gate else '+3V3_VS'),('2','A0','GND'),('3','ALERT','NC')]
     for i,(pin,name,net) in enumerate(pins):
         yy=745+i*59
         s.wire((x-70,yy),(x,yy))
@@ -202,12 +202,12 @@ def logic_monitor(s,x,ref,gate):
 
 
 def page_power():
-    s=Drawing('full-02-power-logic',2,'Full schematic - power, Pico header and INA226 logic',
+    s=Drawing('full-02-power-logic',2,'Full schematic - power, Pico header and sensor logic',
               'Battery negative, LM358 V- and Pico GND are common. K1 switches the positive battery lead; it does not switch the DUT terminals.')
     s.box(35,115,565,500,'USB-powered Pico and source reference')
     s.text(65,210,'A1.36  3V3(OUT)',23,weight='bold')
     s.wire((65,245),(545,245));s.label(65,280,'+3V3_VS -> J1.3 S, R13.1')
-    s.lines(65,330,['Also feeds INA226 logic and K1 module.',
+    s.lines(65,330,['Also feeds sensor logic and K1 module.',
                     'Source on pin 36 / 3V3: user confirmed.',
                     'VS = nominal 3.3 V, measured relative to GND.',
                     'Use measured VS for both VDS and VGS.',
@@ -255,7 +255,7 @@ def page_power():
     logic_monitor(s,1640,'U3',True)
     s.lines(55,1234,['Breakout SDA/SCL pull-ups remain connected to +3V3_VS; values unverified.',
                      '3V3 is a regulated supply, not a precision reference. Measure under load.',
-                     'Shunt rails: 0x7fff / 0x8000. ADC range: drain ~104 mA; gate ~128 uA.'],18,gap=33)
+                     'ADC endpoint stops: drain +/-104 mA; gate +/-1.6583 mA at 98.8 ohm.'],18,gap=33)
     return s.finish()
 
 
@@ -282,7 +282,7 @@ def page_connections():
     s.text(55,yy+32,'NC: U2.3 (ALERT), U3.3 (ALERT). Leave open; do not connect to either supply.',20)
     s.lines(55,yy+73,[
         'Onboard I2C pull-ups connect SDA/SCL to +3V3_VS; external R11/R12 are omitted. Values are unverified.',
-        'C7/C8 may already be fitted on the INA226 modules. Ensure a 100 nF bypass exists at each IC supply.',
+        'C7/C8 may already be fitted on the sensor modules. Ensure a 100 nF bypass exists at each IC supply.',
         'C1/C3: ceramic preferred; if polarized, terminal 1 = + and terminal 2 = -. Other nonpolar terminal IDs are arbitrary.',
         'All U2/U3 numbers are IC pins. Module-header locations require the exact board or continuity tracing.',
         'R13 adds the 3.3 V reference to drain IN1+ only. Source J1.3 uses the same rail; connection confirmed by user.',
@@ -324,16 +324,16 @@ def page_parts():
         s.wire((460,yy-5),(475,yy-5))
     s.text(65,830,'Bold pins are the six scanner connections.',18)
     dip(s,740,145,390,[(1,'OUT1'),(2,'IN1-'),(3,'IN1+'),(4,'V-')],[(8,'V+'),(7,'OUT2'),(6,'IN2-'),(5,'IN2+')],'U1 LM358P / PDIP-8')
-    dip(s,740,445,390,[(1,'A1'),(2,'A0'),(3,'ALERT'),(4,'SDA'),(5,'SCL')],[(10,'IN+'),(9,'IN-'),(8,'VBUS'),(7,'GND'),(6,'VS')],'U2 / U3 INA226 IC')
-    s.lines(715,782,['INA226: DGS / VSSOP-10 chip numbering.',
+    dip(s,740,445,390,[(1,'A1'),(2,'A0'),(3,'ALERT'),(4,'SDA'),(5,'SCL')],[(10,'IN+'),(9,'IN-'),(8,'VBUS'),(7,'GND'),(6,'VS')],'U2 INA226 / U3 INA228')
+    s.lines(715,782,['INA226 / INA228: same DGS-10 pinout.',
                      'Breakout headers can have a different order.'],18,gap=28)
     s.box(1190,115,775,735,'Parts to assemble (module parts may already exist)')
     bom=[
-        ('A1','1','Pico 2 W in Plus kit'),('U1','1','LM358P, PDIP-8'),('U2, U3','2','INA226 breakout boards, 3.3 V logic'),
+        ('A1','1','Pico 2 W in Plus kit'),('U1','1','LM358P, PDIP-8'),('U2, U3','1 each','INA226 drain / INA228 gate, 3V3'),
         ('R1','1','1k 5% fitted drain filter'),('R6','1','1k nominal gate filter; unchanged'),
         ('R3, R8','2','68k nominal feedback'),('R4, R9','2','10k nominal to GND'),
         ('R13','1','6.8k nominal, 3V3 to IN1+'),
-        ('R5','1','1 ohm nominal drain shunt'),('R10','1','680 ohm nominal gate shunt'),
+        ('R5','1','1 ohm nominal drain shunt'),('R10','1','98.8 ohm measured gate shunt'),
         ('C1, C3','2','10uF >=10 V; ceramic preferred'),('C5','1','100nF / 50V, fitted'),
         ('C6','1','10uF / 50V; fitting unconfirmed'),('C7, C8','0 or 2','100nF >=10 V; check board bypass'),('J1','1','Removable fixture: 1=D, 2=G, 3=S'),
         ('B1, B2','2','9 V batteries, series pack'),('K1','1','Relay module B0F3TM3RZ6'),
@@ -355,7 +355,7 @@ def page_parts():
     ],19,gap=36)
     s.box(1010,885,955,425,'Board-specific checks and source references')
     s.lines(1035,947,[
-        'INA226 numbers are IC pins; identify headers by labels / continuity.',
+        'INA226/INA228 numbers are IC pins; identify headers by labels / continuity.',
         'J1 fixture: 1=D, 2=G, 3=S. This is NOT the MOSFET package order.',
         'onsemi 2N7000G: flat marked face toward you, leads pointing down:',
         'left to right = 1 Source, 2 Gate, 3 Drain (S/G/D).',
@@ -363,7 +363,7 @@ def page_parts():
         'onsemi datasheet, pages 1 and 4 (Mouser mirror):',
         'mouser.com/datasheet/2/308/2N7000-D-33553.pdf',
         'TI LM358: ti.com/lit/gpn/lm358 (pin table, PDIP top view)',
-        'TI INA226: ti.com/lit/ds/symlink/ina226.pdf (DGS pin table)',
+        'TI pin tables: ti.com/lit/ds/symlink/ina226.pdf and ina228.pdf',
         'Pico 2 W: datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf',
         'K1 is a battery-supply switch, not a software fault/DUT isolation relay.',
         'Direct-drive math / ADC stops: firmware/README.md and prototype/README.md.',
@@ -376,7 +376,7 @@ def svg_to_pdf(paths):
     pdfmetrics.registerFont(TTFont('CircuitArial',r'C:\Windows\Fonts\arial.ttf'))
     pdfmetrics.registerFont(TTFont('CircuitArialBold',r'C:\Windows\Fonts\arialbd.ttf'))
     c=canvas.Canvas(str(PDF),pagesize=landscape(A3))
-    c.setTitle('Pocket MOSFET scanner - full schematic G - fitted 1k 5% drain filter / switched 18 V')
+    c.setTitle('Pocket MOSFET scanner - full schematic H - INA226 drain / INA228 gate / switched 18 V')
     c.setAuthor('Pocket MOSFET scanner project')
     pagew,pageh=landscape(A3)
     scale=min(pagew/W,pageh/H)
@@ -424,7 +424,7 @@ def svg_to_pdf(paths):
 if __name__=='__main__':
     assigned=check_nets()
     (OUT/'connections.json').write_text(json.dumps({
-        'revision':'G','date':'2026-11-02','documentation_updated':'2026-11-03',
+        'revision':'H','date':'2026-11-04','documentation_updated':'2026-11-04',
         'configuration':'3.3 V source/reference; ground-referenced 2x9 V battery with NO relay in positive lead',
         'pwm_hz':100000,'nominal_pwm_gain':{'drain':6.8,'gate':7.8},
         'nominal_offset_v':{'drain':3.3,'gate':0},'nominal_source_v':3.3,
@@ -437,14 +437,43 @@ if __name__=='__main__':
                             'historical_only':True,
                             'evidence':'output/smoke-test/source33-zero-1k-final-20261102.log'},
         'nominal_driver_supply_v':18,'settle_ms':100,
-        'ina_average_count':64,'acquisition_mode':'ina226_triggered_v1',
+        'ina_average_count':64,'acquisition_mode':'ina226_ina228_triggered_v1',
+        'sensor_conversion_us':{'drain':1100,'gate':1052},
+        'sensor_models':{'drain':'INA226','gate':'INA228'},
+        'gate_shunt_installation':'98.8 ohm measured replacement fitted; stock shunt removed; 100 ohm 1% recommended nominal',
+        'current_shunt_scale_ohm':{'drain':0.789,'gate':98.8},
+        'sensor_identity_check':{'date':'2026-11-04','reads_per_channel':10,
+                                 'drain':{'address':'0x44','device_id':'0x2260'},
+                                 'gate':{'address':'0x40','device_id':'0x2281'},
+                                 'zero_pwm_protocol_check':'passed; analog wiring not verified'},
+        'native_protocol_check':{'date':'2026-11-04','pwm_outputs_low':True,
+                                 'ina_average_count':64,
+                                 'ready_elapsed_us':{'drain':136734,'gate':140126},
+                                 'trigger_registers_stable':True,
+                                 'cancel_1024_average_and_resume_continuous':'passed',
+                                 'diagnostic_readback':'passed',
+                                 'old_baseline_compatible':False,
+                                 'fixture':'I2C only; analog inputs unconnected',
+                                 'analog_connections':'pending',
+                                 'analog_voltage_sweep':'not performed',
+                                 'fresh_open_output_calibration':'pending'},
+        'native_memory_check':{'date':'2026-11-04','result':'passed',
+                               'synthetic_reads':984,'drain_knots':46,'gate_knots':53,
+                               'free_heap_bytes':{'start':65040,'after_calibration':64048,'final':63520},
+                               'lookup_pairs':20000,'stream_records':4096,
+                               'stream_bytes':155238,'identical_streams':2,
+                               'stream_sha256':'9694ba2e54bbfa9d1c087165c7213f80886bac8c47c915b94e539f58824c6524',
+                               'physical_calibration':False,'baseline_flash_write':False,'wifi':False},
+        'installation_check':{'public_files_verified':16,'preserved_files_unchanged':14,
+                              'temporary_helpers_removed':3,'normal_boot_ready_ms':2812,'boot_fault':False},
         'current_stop_policy':'shunt_adc_full_scale_readback',
         'ina_shunt_comparators_enabled':False,
-        'adc_shunt_full_scale_raw_codes':['0x7fff','0x8000'],
-        'adc_shunt_lsb_v':0.0000025,
+        'adc_shunt_full_scale_raw_codes':{'drain':['0x7fff','0x8000'],
+                                          'gate':['0x7ffff','0x80000']},
+        'adc_shunt_lsb_v':{'drain':0.0000025,'gate':0.0000003125},
         'current_at_shunt_full_scale_a':{
             'drain':{'negative':-32768*0.0000025/0.789,'positive':32767*0.0000025/0.789},
-            'gate':{'negative':-32768*0.0000025/638,'positive':32767*0.0000025/638}},
+            'gate':{'negative':-524288*0.0000003125/98.8,'positive':524287*0.0000003125/98.8}},
         'adc_shunt_rail_stop':True,'measurement_correction':'optional_open_output_baseline',
         'current_baseline':{'file':'current-baseline.bin','format':'PSB1',
                             'lookup':'linear_endpoint_hold','maximum_knots_per_channel':65,
@@ -456,10 +485,10 @@ if __name__=='__main__':
                         'supply_v':3.3,'enable_tied_to_vcc':True,'internal_driver_and_suppression':'not verified'},
         'notes':[
             'User confirmed source J1.3 on Pico 3V3 pin 36 and the 6.8k offset resistor fitted. Firmware uses resistor math with optional source-zero anchor and open-output current baseline; historical checks do not establish complete hardware validation.',
-            'INA226 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.',
+            'INA226/INA228 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.',
             'onsemi 2N7000G: flat marked face toward you, leads down, left to right = pin 1 Source, pin 2 Gate, pin 3 Drain. Connect fixture J1.1 to DUT pin 3, J1.2 to pin 2, J1.3 to pin 1. Manufacturer datasheet, Mouser mirror: https://www.mouser.com/datasheet/2/308/2N7000-D-33553.pdf pages 1 and 4.',
             'C5 is fitted. C6 is shown as intended bulk decoupling; installation remains unconfirmed.',
-            'U2 drain 0x44: A1 = 3V3, A0 = GND. U3 gate 0x41: A1 = GND, A0 = 3V3.',
+            'U2 drain 0x44: A1 = 3V3, A0 = GND. U3 INA228 gate 0x40: A1 = GND, A0 = GND.',
             'R13 is from 3V3 to drain IN1+ pin 3; R4 stays grounded. Gate topology unchanged.',
             'R1 is now 1k 5%, replacing the temporary 1.1k and earlier incorrect 10k. R6 remains nominal 1k, not remeasured.',
             'Ideal zero-PWM drain is VS. Resistor tolerances can put the actual floor above or below VS. Calibration records the closest source-relative zero and residual; it cannot remove an unreachable floor. Actual voltages remain authoritative.',
@@ -472,7 +501,7 @@ if __name__=='__main__':
             '3V3 load must absorb source-return current; ADC range does not establish rail current capability. Power switching does not guarantee DUT isolation.',
             'Existing breakout I2C pull-ups go to 3V3; external R11/R12 omitted. C7/C8 may already be fitted.',
             'R2/R7/C2/C4 removed. Drain RC 8.72 ms with R13, gate RC 10 ms nominal. Polarized C1/C3: terminal 1 positive.',
-            'Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate 680 ohm nominal, provisional scale 638 ohm.',
+            'Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate INA228 stock shunt replaced by measured 98.8 ohm resistor. Nominal recommendation is 100 ohm 1%. Refresh calibration after the sensor/shunt change.',
         ]},indent=2),encoding='utf-8')
     paths=[page_analog(),page_power(),page_connections(),page_parts()]
     svg_to_pdf(paths)

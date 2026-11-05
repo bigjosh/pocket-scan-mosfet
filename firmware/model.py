@@ -20,14 +20,15 @@ DRAIN_ZERO_DUTY_V = (AMPLIFIER_GAIN * DRAIN_BIAS_V * DRAIN_PWM_FILTER_OHM /
 INA_MAX_BUS_V = 36.0
 MAX_POINTS = 4096
 DRAIN_SHUNT_OHM = 0.789  # Fixed effective resistance of the fitted nominal 1-ohm shunt.
-GATE_SHUNT_OHM = 638.0  # Provisional in-circuit meter reading.
+GATE_SHUNT_OHM = 98.8  # Measured fitted INA228 replacement shunt (nominal 100 ohms).
 MICROVOLTS_PER_VOLT = 1000000
 VOLTAGE_FIELDS = ("drain_start", "drain_stop", "drain_step",
                   "gate_start", "gate_stop", "gate_step",
                   "driver_supply", "source_voltage")
 INA_AVERAGE_COUNTS = (1, 4, 16, 64, 128, 256, 512, 1024)
-ACQUISITION_MODE = "ina226_triggered_v1"
+ACQUISITION_MODE = "ina226_ina228_triggered_v1"
 INA_CONVERSION_US = 1100
+INA228_CONVERSION_US = 1052
 LEGACY_TIMING = {"batches": 10, "samples_per_batch": 50,
                  "sample_pause_ms": 4, "settle_ms": 200}
 
@@ -207,7 +208,7 @@ def _validate_legacy_timing(result):
 def _validate_timing(result):
     count = result["ina_average_count"]
     if isinstance(count, bool) or not isinstance(count, int) or count not in INA_AVERAGE_COUNTS:
-        raise ValueError("INA226 average count must be 1, 4, 16, 64, 128, 256, 512 or 1024")
+        raise ValueError("INA average count must be 1, 4, 16, 64, 128, 256, 512 or 1024")
     value = _number(result["settle_ms"], "settle_ms")
     if value != int(value) or not 100 <= value <= 10000:
         raise ValueError("settle_ms must be an integer in 100..10000")
@@ -215,7 +216,7 @@ def _validate_timing(result):
 
 
 def acquisition_metadata(settings, blocks_per_point=1):
-    """Describe the actual INA226 conversion method independently of voltages."""
+    """Describe the mixed pair; unprefixed conversion times belong to drain."""
     if (isinstance(blocks_per_point, bool) or not isinstance(blocks_per_point, int)
             or blocks_per_point < 1):
         raise ValueError("Invalid acquisition block count")
@@ -224,6 +225,8 @@ def acquisition_metadata(settings, blocks_per_point=1):
             "ina_average_count": settings["ina_average_count"],
             "bus_conversion_us": INA_CONVERSION_US,
             "shunt_conversion_us": INA_CONVERSION_US,
+            "gate_bus_conversion_us": INA228_CONVERSION_US,
+            "gate_shunt_conversion_us": INA228_CONVERSION_US,
             "blocks_per_point": blocks_per_point,
             "point_variance": "unavailable" if blocks_per_point == 1 else "between_blocks"}
 

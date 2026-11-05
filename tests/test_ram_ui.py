@@ -536,7 +536,9 @@ class RamUITests(unittest.TestCase):
         failures = tuple(
             OverrangeError(channel, "shunt_saturation", code, sign, voltage, "V")
             for channel in ("drain", "gate")
-            for code, sign, voltage in ((0x7fff, 1, 0.0819175), (0x8000, -1, 0.08192)))
+            for code, sign, voltage in (((0x7fff, 1, 0.0819175), (0x8000, -1, 0.08192))
+                                       if channel == "drain" else
+                                       ((0x7ffff, 1, 0.1638396875), (0x80000, -1, 0.16384))))
         for failure in failures:
             with self.subTest(channel=failure.channel, sign=failure.sign):
                 self.setUp()

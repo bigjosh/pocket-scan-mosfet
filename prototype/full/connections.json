@@ -1,7 +1,7 @@
 {
-  "revision": "G",
-  "date": "2026-11-02",
-  "documentation_updated": "2026-11-03",
+  "revision": "H",
+  "date": "2026-11-04",
+  "documentation_updated": "2026-11-04",
   "configuration": "3.3 V source/reference; ground-referenced 2x9 V battery with NO relay in positive lead",
   "pwm_hz": 100000,
   "nominal_pwm_gain": {
@@ -39,22 +39,101 @@
   "nominal_driver_supply_v": 18,
   "settle_ms": 100,
   "ina_average_count": 64,
-  "acquisition_mode": "ina226_triggered_v1",
+  "acquisition_mode": "ina226_ina228_triggered_v1",
+  "sensor_conversion_us": {
+    "drain": 1100,
+    "gate": 1052
+  },
+  "sensor_models": {
+    "drain": "INA226",
+    "gate": "INA228"
+  },
+  "gate_shunt_installation": "98.8 ohm measured replacement fitted; stock shunt removed; 100 ohm 1% recommended nominal",
+  "current_shunt_scale_ohm": {
+    "drain": 0.789,
+    "gate": 98.8
+  },
+  "sensor_identity_check": {
+    "date": "2026-11-04",
+    "reads_per_channel": 10,
+    "drain": {
+      "address": "0x44",
+      "device_id": "0x2260"
+    },
+    "gate": {
+      "address": "0x40",
+      "device_id": "0x2281"
+    },
+    "zero_pwm_protocol_check": "passed; analog wiring not verified"
+  },
+  "native_protocol_check": {
+    "date": "2026-11-04",
+    "pwm_outputs_low": true,
+    "ina_average_count": 64,
+    "ready_elapsed_us": {
+      "drain": 136734,
+      "gate": 140126
+    },
+    "trigger_registers_stable": true,
+    "cancel_1024_average_and_resume_continuous": "passed",
+    "diagnostic_readback": "passed",
+    "old_baseline_compatible": false,
+    "fixture": "I2C only; analog inputs unconnected",
+    "analog_connections": "pending",
+    "analog_voltage_sweep": "not performed",
+    "fresh_open_output_calibration": "pending"
+  },
+  "native_memory_check": {
+    "date": "2026-11-04",
+    "result": "passed",
+    "synthetic_reads": 984,
+    "drain_knots": 46,
+    "gate_knots": 53,
+    "free_heap_bytes": {
+      "start": 65040,
+      "after_calibration": 64048,
+      "final": 63520
+    },
+    "lookup_pairs": 20000,
+    "stream_records": 4096,
+    "stream_bytes": 155238,
+    "identical_streams": 2,
+    "stream_sha256": "9694ba2e54bbfa9d1c087165c7213f80886bac8c47c915b94e539f58824c6524",
+    "physical_calibration": false,
+    "baseline_flash_write": false,
+    "wifi": false
+  },
+  "installation_check": {
+    "public_files_verified": 16,
+    "preserved_files_unchanged": 14,
+    "temporary_helpers_removed": 3,
+    "normal_boot_ready_ms": 2812,
+    "boot_fault": false
+  },
   "current_stop_policy": "shunt_adc_full_scale_readback",
   "ina_shunt_comparators_enabled": false,
-  "adc_shunt_full_scale_raw_codes": [
-    "0x7fff",
-    "0x8000"
-  ],
-  "adc_shunt_lsb_v": 2.5e-06,
+  "adc_shunt_full_scale_raw_codes": {
+    "drain": [
+      "0x7fff",
+      "0x8000"
+    ],
+    "gate": [
+      "0x7ffff",
+      "0x80000"
+    ]
+  },
+  "adc_shunt_lsb_v": {
+    "drain": 2.5e-06,
+    "gate": 3.125e-07
+  },
   "current_at_shunt_full_scale_a": {
     "drain": {
       "negative": -0.10382762991128011,
       "positive": 0.10382446134347276
     },
     "gate": {
-      "negative": -0.0001284012539184953,
-      "positive": 0.0001283973354231975
+      "negative": -0.0016582995951417007,
+      "positive": 0.0016582964321862352
     }
   },
   "adc_shunt_rail_stop": true,
@@ -111,7 +190,7 @@
       }
     },
     "U3": {
-      "part": "INA226 gate / DGS-10 IC",
+      "part": "INA228 gate / DGS-10 IC",
       "pins": {
         "1": "A1",
         "2": "A0",
@@ -208,7 +287,7 @@
       }
     },
     "R10": {
-      "part": "680 ohm nominal; provisional scale 638 ohm",
+      "part": "98.8 ohm measured replacement gate shunt; 100 ohm 1% recommended nominal",
       "pins": {
         "1": "terminal 1",
         "2": "terminal 2"
@@ -271,6 +350,7 @@
       "U2.2",
       "U2.7",
       "U3.1",
+      "U3.2",
       "U3.7",
       "R4.2",
       "R9.2",
@@ -290,7 +370,6 @@
       "U2.1",
       "U2.6",
       "U3.6",
-      "U3.2",
       "C7.1",
       "C8.1",
       "K1.VCC",
@@ -386,10 +465,10 @@
   },
   "notes": [
     "User confirmed source J1.3 on Pico 3V3 pin 36 and the 6.8k offset resistor fitted. Firmware uses resistor math with optional source-zero anchor and open-output current baseline; historical checks do not establish complete hardware validation.",
-    "INA226 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.",
+    "INA226/INA228 numbers are IC pins, not breakout header positions. J1 numbering is our fixture, not a MOSFET package.",
     "onsemi 2N7000G: flat marked face toward you, leads down, left to right = pin 1 Source, pin 2 Gate, pin 3 Drain. Connect fixture J1.1 to DUT pin 3, J1.2 to pin 2, J1.3 to pin 1. Manufacturer datasheet, Mouser mirror: https://www.mouser.com/datasheet/2/308/2N7000-D-33553.pdf pages 1 and 4.",
     "C5 is fitted. C6 is shown as intended bulk decoupling; installation remains unconfirmed.",
-    "U2 drain 0x44: A1 = 3V3, A0 = GND. U3 gate 0x41: A1 = GND, A0 = 3V3.",
+    "U2 drain 0x44: A1 = 3V3, A0 = GND. U3 INA228 gate 0x40: A1 = GND, A0 = GND.",
     "R13 is from 3V3 to drain IN1+ pin 3; R4 stays grounded. Gate topology unchanged.",
     "R1 is now 1k 5%, replacing the temporary 1.1k and earlier incorrect 10k. R6 remains nominal 1k, not remeasured.",
     "Ideal zero-PWM drain is VS. Resistor tolerances can put the actual floor above or below VS. Calibration records the closest source-relative zero and residual; it cannot remove an unreachable floor. Actual voltages remain authoritative.",
@@ -402,6 +481,6 @@
     "3V3 load must absorb source-return current; ADC range does not establish rail current capability. Power switching does not guarantee DUT isolation.",
     "Existing breakout I2C pull-ups go to 3V3; external R11/R12 omitted. C7/C8 may already be fitted.",
     "R2/R7/C2/C4 removed. Drain RC 8.72 ms with R13, gate RC 10 ms nominal. Polarized C1/C3: terminal 1 positive.",
-    "Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate 680 ohm nominal, provisional scale 638 ohm."
+    "Shunts: drain 1 ohm nominal, installed scale 0.789 ohm; gate INA228 stock shunt replaced by measured 98.8 ohm resistor. Nominal recommendation is 100 ohm 1%. Refresh calibration after the sensor/shunt change."
   ]
 }

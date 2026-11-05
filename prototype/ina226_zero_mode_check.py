@@ -1,11 +1,6 @@
 """Compare zero-drive continuous and triggered readings in one hardware session."""
 import main
-
-
-def config(instrument, value):
-    payload = bytes((value >> 8, value & 255))
-    for address in (0x44, 0x41):
-        instrument._bus.writeto_mem(address, 0, payload)
+from hardware import INA_CONFIG, INA228_ADC_CONFIG
 
 
 def means(instrument, count):
@@ -29,16 +24,13 @@ def run():
         wifi.pause()
         instrument = main.Instrument()
         for repetition in range(3):
-            config(instrument, 0x4127)
+            instrument.set_duty("gate", 0)
+            instrument.set_duty("drain", 0)
             main.time.sleep_ms(500)
             before = means(instrument, 80)
-            config(instrument, 0x4723)
-            ready = [False, False]
+            instrument.begin_measurement(64)
             started = main.time.ticks_ms()
-            while not all(ready):
-                for index, address in enumerate((0x44, 0x41)):
-                    if instrument._read16(address, 6) & 8:
-                        ready[index] = True
+            while not instrument.poll_measurement():
                 if main.time.ticks_diff(main.time.ticks_ms(), started) > 1000:
                     raise RuntimeError("Conversion timeout")
                 main.time.sleep_ms(2)
@@ -48,11 +40,23 @@ def run():
     finally:
         if instrument is not None:
             try:
-                config(instrument, 0x4127)
+                errors = []
+                for address, register, config in ((0x44, 0, INA_CONFIG), (0x40, 1, INA228_ADC_CONFIG)):
+                    try:
+                        instrument._write16(address, register, config)
+                    except Exception as error:
+                        errors.append(type(error).__name__)
             finally:
-                instrument.close()
-        main.Pin(21, main.Pin.OUT, value=0)
-        main.Pin(20, main.Pin.OUT, value=0)
+                try:
+                    instrument.close()
+                finally:
+                    main.Pin(21, main.Pin.OUT, value=0)
+                    main.Pin(20, main.Pin.OUT, value=0)
+            if errors:
+                raise RuntimeError("Zero-mode configuration restore failed")
+        else:
+            main.Pin(21, main.Pin.OUT, value=0)
+            main.Pin(20, main.Pin.OUT, value=0)
         if wifi is not None:
             wifi.pause()
     print("ZERO_MODE_DONE", "config_restored", True, "outputs_low", True)

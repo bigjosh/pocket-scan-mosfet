@@ -129,11 +129,11 @@ class HardwareTimingTests(unittest.TestCase):
         self.assertFalse(self.instrument.poll_measurement())
         self.fake.registers[0x44][6] |= self.hw.READY_FLAG
         self.assertFalse(self.instrument.poll_measurement())
-        self.fake.registers[0x41][6] |= self.hw.READY_FLAG
+        self.fake.registers[0x40][0x0B] |= 2
         self.assertTrue(self.instrument.poll_measurement())
         self.assertEqual(self.timing.counts[scan_timing.POLLS], 3)
         self.instrument.read_pair()
-        self.fake.write_error = (0x41, 0)
+        self.fake.write_error = (0x40, 1)
         self.fake.events.clear()
         with self.assertRaises(self.hw.HardwareError):
             self.instrument.begin_measurement(64)

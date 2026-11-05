@@ -1,44 +1,48 @@
 # Pocket MOSFET scanner
 
-<img width="560" height="467" alt="image" src="https://github.com/user-attachments/assets/7a2c68f0-2fdf-4598-a3fa-dfca65b3da9b" />
+<img width="560" height="467" alt="Pocket MOSFET scanner" src="https://github.com/user-attachments/assets/7a2c68f0-2fdf-4598-a3fa-dfca65b3da9b" />
 
-[video](https://youtube.com/shorts/NMgNdhcEQCA?is=Oy0in90gEM06KxaR)
+[Video demonstration](https://youtube.com/shorts/NMgNdhcEQCA?is=Oy0in90gEM06KxaR)
 
-A pocket-sized MOSFET curve tracer using a sweeps drain voltage
-for each gate voltage, plots measured curves locally, and uploads each scan
-to a new Google Sheets tab, with plots...
-<img width="1066" height="1120" alt="image" src="https://github.com/user-attachments/assets/da5279d9-d765-468f-b696-48eac7ae8299" />
+A pocket-sized MicroPython MOSFET curve tracer using a **Raspberry Pi Pico 2 W**, an
+**INA226 drain sensor**, an **INA228 gate sensor**, and **LM358P** voltage drivers.
+It sweeps drain voltage for each gate voltage, plots measured curves locally,
+and uploads each scan to a new Google Sheets tab with plots.
 
-Uses a boost converter so it can cover drain and gate voltages -3V to +15V relative to source. 
+<img width="1066" height="1120" alt="Uploaded scan data and plots in Google Sheets" src="https://github.com/user-attachments/assets/da5279d9-d765-468f-b696-48eac7ae8299" />
 
-Logs both the commanded and actual measured voltages so small inacuracies in the voltage
-generation don't matter. 
+A boost converter supplies the analog drivers at 19 V. With the source biased
+at 3.3 V, the gate can go negative relative to the source; the drain driver has
+a fixed positive offset. Reachable voltages depend on supply, amplifier
+headroom and load. Scans store actual measured voltages and the commanded sweep
+settings, so small drive errors remain visible in the data.
 
-Critically, it measures gate leakage down to tens of nanoamps because if your gate is leaking then 
-nothing else really counts.
+Low gate leakage is a focus. The original INA226 gate breakouts showed several
+microamps of apparent unloaded current. The current build uses an INA228 on
+the gate, whose unloaded readings were below 0.03 µA magnitude in the recorded
+check. The drain retains an INA226 with optional baseline correction.
 
-Every part used was available on Amazon next day and you can build it with no soldering if you want. 
-I only soldered some parts to clean up the wire mess.
-
-IMPORTANT: Do note that the INA226 breakouts that I got from amazon had the old crappy version of the chip that 
-leaks about 10uA on the voltage sampling pins, which makes the gate current sampling more complicated. It would
-be much better to find the new version of this chip so I ordered a bunch of other similar modules and will report back
-what I find. 
+The prototype was built from parts bought on Amazon and can be assembled
+without soldering. Some parts were soldered to reduce the wire clutter before
+closing the printed case; see the assembly photo below.
 
 ## Direct measurement
 
 The firmware calculates PWM from the resistor values, optionally anchored to
 measured source-relative zero settings. An open-output calibration in Advanced
-measures a small voltage-dependent current baseline for each INA226. There are
+measures a voltage-dependent drain-current baseline and both zero PWM settings.
+Gate current always uses the raw INA228 shunt reading. There are
 no iterative voltage corrections or target-error stops. Each point sets drain
 drive, updates gate drive when starting a new curve, waits for settling,
-triggers both INA226s, then records actual **VDS, VGS, drain current and gate
+triggers both sensors, then records actual **VDS, VGS, drain current and gate
 current**.
 
 Terminal voltage is `VBUS - shunt voltage`; subtract the configured source
-voltage for VDS/VGS. With a compatible baseline, current is signed shunt voltage
-minus the interpolated open-output baseline, divided by resistance. Missing or
-incompatible calibration leaves readings explicitly uncorrected. Source voltage
+voltage for VDS/VGS. With a compatible baseline, drain current is signed shunt
+voltage minus the interpolated open-output baseline, divided by drain resistance.
+Gate current is always signed shunt voltage divided by 98.8 Ω, without baseline
+subtraction. Missing or incompatible calibration leaves drain current explicitly
+uncorrected too. Source voltage
 is a manual setting, not an independently measured value.
 
 Unreachable voltage commands produce the measured point. All points in each
@@ -61,15 +65,27 @@ measured gate voltage differs from its command. Actual VGS remains in the data.
   probes or shunt jumpers. Its fixed binary tables and workspace are reserved
   at boot; only a completed calibration replaces the saved baseline. Cancel
   preserves the previous file and restarts.
+- **Settings → Advanced → Debug** provides manual drain/gate targets to GND,
+  applied PWM and live raw VBUS ADC voltages to GND plus currents. Opening the
+  page leaves PWM off;
+  **Keypad OK immediately applies both targets**; main-page OK also applies them.
+  Each PWM line shows red **OFF** while disabled or its current duty while enabled,
+  with a prominent ON/OFF badge. Opening a target editor stops both outputs;
+  keypad Cancel returns with them off, and main-page **CANCEL** stops them and
+  returns to Advanced. Debug values stay in RAM and
+  are neither logged nor uploaded.
 - Settling defaults to **100 ms** and overlaps incremental screen updates.
-  INA averaging defaults to **64**, with **1.1 ms bus + 1.1 ms shunt** per
-  conversion pair; both sensors run concurrently after sequential triggers.
+  INA averaging defaults to **64**. Drain bus/shunt conversions are each
+  **1.1 ms**; gate conversions are each **1.052 ms**. Both sensors run
+  concurrently after sequential triggers, so the drain sets the nominal
+  **140.8 ms** block duration.
 - The live **Ig** label and value turn red when **|Ig| > 1 µA**. This visual
   warning uses the reported current and does not stop the scan.
-- Current-driven stops occur only when either INA226 shunt readback reaches
-  **0x7fff (positive full scale) or 0x8000 (negative full scale)**. With the
-  fitted scales, this is about **±104 mA drain / ±128 µA gate**. No separate
-  current threshold or shunt comparator is programmed.
+- Current-driven stops occur only when either sensor returns its signed
+  shunt-ADC endpoint. Drain codes are **0x7fff / 0x8000**; gate 20-bit
+  codes are **0x7ffff / 0x80000**. With the configured shunts, this is about
+  **±104 mA drain / ±1.66 mA gate**. No separate current threshold or shunt
+  comparator is programmed.
 - Shunt-ADC saturation preserves completed points for partial upload. A stop before
   the first point shows the fault and does not upload an empty scan.
   Communication/configuration failures, malformed ADC data and
@@ -83,18 +99,49 @@ measured gate voltage differs from its command. Actual VGS remains in the data.
 | Function | Current prototype |
 |---|---|
 | Controller/UI | Pico 2 W, GeeekPi / 52Pi EP-0172 Plus kit |
-| Drain/gate INA226 | 0x44 / 0x41; 3.3 V logic; VBUS tied to IN+ before shunt |
+| Drain sensor | INA226 at 0x44: A1 to 3V3, A0 to GND |
+| Gate sensor | INA228 at 0x40: A1 and A0 to GND; ±163.84 mV shunt range |
+| Sensor wiring | 3.3 V logic; each VBUS tied to IN+ before its shunt |
 | I²C | GP18 SDA, GP19 SCL, 100 kHz; breakout pull-ups |
 | Drain/gate PWM | GP20 / GP21, 100 kHz; 1 kΩ / 10 µF filter per channel |
 | Feedback | 68 kΩ / 10 kΩ, nominal gain 7.8 |
 | Source | Pico 3V3; 6.8 kΩ from that rail to drain IN1+ adds drain offset |
-| LM358 supply | Two series 9 V batteries; negative at GND; positive via relay NO |
+| LM358 supply | MTDELE XL6019 boost module (B0FB3PVWV5), fed from Pico VBUS / pin 40; last reported output setting 19.0 V |
 | Relay | VCC and ACTIVATE tied to 3V3; no software isolation control |
-| Shunt scales | Drain 0.789 Ω (previously measured effective value); gate 638 Ω (provisional meter value) |
+| Shunt scales | Drain 0.789 Ω (previously measured effective value); gate 98.8 Ω measured replacement |
 | Buttons | Left GP15/pin 20; right GP14/pin 19 |
 
-Defaults describe this circuit: source **3.3 V**, driver supply **18.8 V**, and
-drain sweep starting at **0.1 V**. Saved settings remain authoritative.
+The gate module's stock shunt has been replaced with a resistor measured at
+**98.8 Ω**; 100 Ω, 1% metal-film remains the recommended nominal part. Do not
+leave the stock shunt in parallel. A 1 µA gate current gives a 98.8 µV shunt
+drop. On 2026-11-04, ten identity reads per channel confirmed INA226 `0x2260`
+at drain `0x44` and INA228 `0x2281` at gate `0x40`. The analog wiring is now
+connected, with gate VBUS on IN+. The unloaded gate check found raw apparent
+current below 0.03 µA magnitude across measured 0.018–14.781 V to GND, without
+baseline correction. Loaded accuracy and fresh mixed-sensor calibration
+residuals have not been independently documented. Recalibrate after module or
+shunt changes; the old two-INA226 baseline does not apply.
+
+On 2026-11-04 the batteries were replaced by an
+[MTDELE XL6019 boost module, ASIN B0FB3PVWV5](https://www.amazon.com/dp/B0FB3PVWV5),
+last set to **19.0 V**. Its input was initially fed from Pico 3V3, then moved to
+**Pico VBUS / physical pin 40** after identifying the chip's
+[specified 5–40 V input range](https://www.xlsemi.com/datasheet/XL6019-EN.pdf).
+The owner subsequently reported a steady **19 V output** and closed the case;
+the load conditions of that meter check were not recorded. Converter input
+margin and loaded output regulation remain unverified.
+With the case closed, the owner then scanned a **1.7 kΩ drain-to-source load
+up to 10 V** and reported a clean, linear curve. This is a qualitative loaded
+check; actual endpoint voltage/current values have not been captured here.
+At 10 V across 1.7 kΩ, the expected load is 5.88 mA / 58.8 mW. Numerical current
+scale, source-rail stability and the 19 V rail under load remain to be verified.
+The MOSFET source stays on 3V3; its ability to absorb returned source current
+must be checked with the converter now drawing from VBUS. Revision H drawings
+still show the preceding battery supply; see the hardware guide for this change.
+
+Firmware defaults remain source **3.3 V**, driver supply **18.8 V**, and
+drain sweep starting at **0.1 V**. For the present supply, set **Driver supply
+(V+) = 19.0 V** in Advanced before recalibrating. Saved settings remain authoritative.
 The supply setting describes the hardware; it does not measure or regulate it.
 Output swing depends on the LM358 supply and load.
 
@@ -109,11 +156,16 @@ See the [hardware guide](prototype/README.md) for schematics and pin tables.
 **Fixture D/G/S numbers are not transistor lead numbers:** the onsemi 2N7000G
 is **Source–Gate–Drain** with its flat face toward you and leads down.
 
-## Assembly 
+## Assembly
 
-<img width="4080" height="3064" alt="2026-11-02 18 57 43" src="https://github.com/user-attachments/assets/1dd7014c-decb-4019-9cfb-ec1516889158" />
+<img width="4080" height="3064" alt="Prototype assembly, 2026-11-02" src="https://github.com/user-attachments/assets/1dd7014c-decb-4019-9cfb-ec1516889158" />
 
-I dead-bugged the filtering caps directly onto the LM386, and made a couple of headers with a caps and resistors to save space. I didn't have any 9 volt battery clips so I used foam to compress wires onto the terminals and wrapped generously with electrical tape. Case is 3D printed with 1" clearance for the parts inside. 
+The filtering capacitors were mounted directly on the LM358, and small headers
+with capacitors and resistors saved space. In the earlier battery-powered build
+shown here, foam pressed wires against the 9 V battery terminals and electrical
+tape held them in place. The batteries have since been replaced by the 19 V
+boost supply described above. The case is 3D printed with 1 inch of internal
+clearance for the parts.
 
 ## Repository and development
 
@@ -153,7 +205,7 @@ baseline files and bench captures are not supplied in this public repository.
 
 ## Prototype limitations
 
-The source rail is not a precision reference. Baseline correction removes the
+The source rail is not a precision reference. Drain baseline correction removes the
 measured open-output offset; temperature changes, altered wiring and component
 changes can invalidate it. It does not calibrate shunt resistance or amplifier
 gain. A source-relative zero below the hardware output floor remains unreachable.
@@ -165,7 +217,38 @@ unconfirmed.
 An intermittent reverse-current report appeared during earlier loaded testing
 and later disappeared; its physical cause remains unresolved. Bench results
 from the previous calibrated firmware do not establish direct-drive accuracy.
-The 2026-11-03 baseline release passed **342 Python tests and 79 receiver tests**,
+The initial 2026-11-04 mixed-sensor update passed **363 Python tests and 82 receiver
+tests**, with receiver version 14 and the mixed-sensor Pico firmware installed.
+Native zero-PWM checks passed
+conversion-ready polling, diagnostic readback and cancel/resume behavior.
+During that initial check, the former baseline loaded but was incompatible
+with the changed hardware.
+The native synthetic calibration/memory check passed, including 20,000 lookup
+pairs and two identical 4,096-record upload streams. Normal boot reached Ready
+in 2.812 seconds with no fault. Only I²C was connected for these digital checks.
+A subsequent unloaded gate sweep verified the connected gate readback; see
+the measured results in the firmware guide. The owner also reported a clean
+1.7 kΩ loaded sweep; numerical accuracy and fresh calibration residuals have
+not been independently documented.
+
+The subsequent drain-only correction update passed **366 Python tests and 87
+receiver tests**. That build contained 15 compiled modules totaling 90,909 bytes.
+A native synthetic check verified raw signed gate readings,
+corrected drain readings, retained gate zero PWM and two identical schema-5
+streams with explicit drain-only provenance. All 14 retained device files were
+unchanged; normal boot reached Ready in 2.204 seconds with outputs low.
+Receiver version 15 is deployed at the existing endpoint, with corrected Id
+and raw Ig labels; historical scans keep their original correction meaning.
+
+The current 2026-11-05 firmware adds the manual Debug page with immediate
+keypad apply, ground-relative targets/readback, red OFF labels and applied
+PWM duty readback. It passed **403 Python tests** and a native 4,162-reading
+UI/memory check with no retained heap growth. All 17 public files were verified
+on the Pico, and 14 saved configuration/data files were preserved. The owner
+confirmed normal operation after this update. This functional confirmation does
+not establish numerical voltage/current accuracy.
+
+With the previous two-INA226 hardware, the 2026-11-03 baseline release passed **342 Python tests and 79 receiver tests**,
 a native 4,096-point RAM/streaming check, an unloaded baseline check, and a real
 three-point corrected Google upload with an exact acknowledgement. Normal
 startup was about **2.25 seconds**. See the [validation details](firmware/README.md#development-checks)

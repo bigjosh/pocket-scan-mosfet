@@ -141,6 +141,19 @@ class PreviewCloud:
     status = {"state": "uploading", "message": "Uploading scan", "configured": True, "enabled": True}
 
 
+class PreviewManual:
+    """Fixed illustrative values; never creates an instrument or drives PWM."""
+    targets_uv = (8300000, 5300000)
+    duty_u16 = tuple(int(model.drive_duty(role, target / 1000000) * 65535 + .5)
+                     for role, target in zip(("drain", "gate"), targets_uv))
+    applied_duty_u16 = duty_u16
+    outputs_enabled = True
+    correction_active = True
+    sample_revision = 1
+    latest = {"drain_bus_v": 8.283, "gate_bus_v": 5.293,
+              "id_a": .00293, "ig_a": 1.234e-6}
+
+
 def preview_app():
     display = PillowDisplay()
     engine = PreviewEngine()
@@ -200,12 +213,20 @@ def render_all(output):
     screens = []
     for title, screen in (("Home", "home"), ("Settings", "settings"),
                           ("Advanced", "advanced"), ("Averaging", "averaging"),
+                          ("Manual debug off", "manual"), ("Manual debug on", "manual"),
                           ("Keypad", "edit"), ("Preparing", "preparing"),
                           ("Scan", "scan"), ("Uploading 37 percent", "upload"),
                           ("Confirming 100 percent", "upload"), ("Upload confirmed", "upload"),
                           ("Partial upload", "upload"), ("Restarting", "restarting")):
         app = preview_app()
         app.screen = screen
+        if screen == "manual":
+            app._manual = PreviewManual()
+            app._manual_cache = [None] * 6
+            if title == "Manual debug off":
+                app._manual.outputs_enabled = False
+                app._manual.applied_duty_u16 = (0, 0)
+                app._manual.latest = None
         if screen == "edit":
             app.edit_label, app.edit_value = "VGS stop (V)", "2.000"
         if screen in ("scan", "upload"):
@@ -218,7 +239,7 @@ def render_all(output):
         elif title == "Upload confirmed":
             app.cloud.state, app.cloud.upload_stage = "complete", 4
             app.cloud.upload_sent = app.cloud.upload_total
-        screens.append(save_screen(app, title, output, screen in ("scan", "upload")))
+        screens.append(save_screen(app, title, output, screen in ("scan", "upload", "manual")))
     for title, screen, mode in (("WiFi", "wifi", "abc"),
                                 ("WiFi search", "wifi_search", "abc"),
                                 ("WiFi networks", "wifi_list", "abc"),

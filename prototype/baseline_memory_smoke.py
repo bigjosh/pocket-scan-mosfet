@@ -19,15 +19,15 @@ from ui import App
 
 class SyntheticInstrument(smoke.SyntheticInstrument):
     identity = {"drain": {"address": 0x44, "die": 0x2260},
-                "gate": {"address": 0x41, "die": 0x2260}}
+                "gate": {"address": 0x40, "die": 0x2281}}
 
     def read_codes_into(self, codes):
         self.reads += 1
         # Include rail clipping and voltage-dependent signed input offsets.
         codes[0] = min(13000, int((3.25 + 22.44 * self.drain) / 0.00125))
         codes[1] = -2 + codes[0] // 5000
-        codes[2] = min(13000, int(25.74 * self.gate / 0.00125))
-        codes[3] = 1700 + codes[2] // 20
+        codes[2] = min(83200, int(25.74 * self.gate / 0.0001953125))
+        codes[3] = 3 + codes[2] // 6400
 
 
 class MemorySettings(smoke.NoFiles):

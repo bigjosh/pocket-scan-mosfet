@@ -35,8 +35,8 @@ def point(config, index=0):
 
 def fault(config, index=0):
     row = point(config, index)
-    return {"channel": "gate", "kind": "shunt_saturation", "raw_code": 32767,
-            "sign": 1, "limit_value": 0.0819175, "limit_unit": "V", "measured_value": None,
+    return {"channel": "gate", "kind": "shunt_saturation", "raw_code": 524287,
+            "sign": 1, "limit_value": 0.1638396875, "limit_unit": "V", "measured_value": None,
             "index": index, "curve": row["curve"], "requested_vds": row["requested_vds"],
             "requested_vgs": row["requested_vgs"], "phase": "sample"}
 
@@ -50,12 +50,15 @@ def new_scan(config=None, **changes):
     return ram_payload.RamScan(**arguments)
 
 
-def correction_metadata():
-    return {"version": 1, "sha256": "a" * 64, "lookup": "linear_endpoint_hold",
+def correction_metadata(version=2):
+    result = {"version": version, "sha256": "a" * 64, "lookup": "linear_endpoint_hold",
             "drain": {"min_bus_uv": 3300000, "max_bus_uv": 16000000,
                       "zero_duty_u16": 42, "zero_residual_uv": 2500, "zero_valid": True},
             "gate": {"min_bus_uv": 1250, "max_bus_uv": 16000000,
                      "zero_duty_u16": 8400, "zero_residual_uv": -1250, "zero_valid": True}}
+    if version == 2:
+        result["applied_to"] = "drain"
+    return result
 
 
 def prepare(scan, budget=256):
@@ -127,7 +130,8 @@ class RamPayloadTests(unittest.TestCase):
         self.assertLess(sum(map(len, scan._header)), 2048)
 
     def test_schema5_rejects_unbounded_or_malformed_metadata_before_acquisition(self):
-        for path, value in (("version", True), ("version", 2), ("sha256", "z" * 64),
+        for path, value in (("version", True), ("version", 3), ("applied_to", "gate"),
+                            ("applied_to", "both"), ("applied_to", True), ("sha256", "z" * 64),
                             ("lookup", "extrapolate"), ("gate", None),
                             ("gate.zero_valid", 1), ("gate.zero_duty_u16", 65536),
                             ("gate.zero_residual_uv", float("nan")),
@@ -143,6 +147,31 @@ class RamPayloadTests(unittest.TestCase):
         correction["table"] = [0] * 4096
         with self.assertRaises(ValueError):
             new_scan(current_correction=correction)
+
+    def test_correction_scope_versions_preserve_historical_meaning(self):
+        config = settings()
+        for version in (1, 2):
+            with self.subTest(version=version):
+                metadata = correction_metadata(version)
+                scan = new_scan(config, current_correction=metadata)
+                original = point(config)
+                scan.append(original)
+                scan.seal(20)
+                prepare(scan)
+                payload = json.loads(wire(scan))
+                self.assertEqual(payload["current_correction"], metadata)
+                if version == 1:
+                    self.assertNotIn("applied_to", payload["current_correction"])
+                else:
+                    self.assertEqual(payload["current_correction"]["applied_to"], "drain")
+                self.assertAlmostEqual(payload["points"][0][3], original["ig_a"], places=15)
+        missing_scope = correction_metadata()
+        missing_scope.pop("applied_to")
+        legacy_with_scope = correction_metadata(1)
+        legacy_with_scope["applied_to"] = "drain"
+        for invalid in (missing_scope, legacy_with_scope):
+            with self.assertRaisesRegex(ValueError, "scope"):
+                new_scan(current_correction=invalid)
 
     def test_schema4_measured_float32_records_implicit_grid_and_repeat_hash(self):
         config = settings(14)

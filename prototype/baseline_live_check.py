@@ -1,7 +1,7 @@
 """Physical open-output current calibration and independent residual check.
 
 Run on a fresh Pico interpreter ONLY after confirming both outputs are open,
-the DUT/probes/loads are removed, and both INA226 shunts are unbridged:
+the DUT/probes/loads are removed, and the INA226 drain / INA228 gate shunts are unbridged:
     import baseline_live_check; baseline_live_check.run()
 
 Uses main's actual boot reservations and production instrument/display/input
@@ -9,9 +9,11 @@ drivers. Settings, credentials and receiver configuration are never changed.
 No scan is uploaded. Calibration is staged in a separate binary, reloaded and
 checked with seven voltage pairs and sixteen fresh blocks/pair before its final
 atomic rename. Cancel, transport failure or timeout before that rename leaves
-the old committed baseline intact. Residual accuracy is reported, not used as
-an invented current trip or pass/fail threshold. The host returns to normal
-Home with a soft reset after this helper finishes.
+the old committed baseline intact. Both tables and source-relative zero anchors
+are retained, but current correction is applied only to drain. Gate current is
+always the raw INA228 shunt measurement divided by the fitted shunt resistance.
+Reported unloaded currents are not used as an invented current trip or pass/fail
+threshold. The host returns to normal Home with a soft reset after this helper.
 """
 
 import main
@@ -62,7 +64,7 @@ class LiveCheck:
         self.settings = settings
         self.started_ms = time.ticks_ms()
         self.codes = [0, 0, 0, 0]
-        self.sums = [0, 0, 0, 0, 0, 0]
+        self.sums = [0, 0, 0, 0, 0]
         self.maximum_residual_ua = [0.0, 0.0]
         self.last_percent = -1
         self.last_channel = None
@@ -158,7 +160,7 @@ class LiveCheck:
         self.instrument.read_codes_into(self.codes)
 
     def residuals(self):
-        print("BASELINE_LIVE_RESIDUAL_COLUMNS", "pair channel terminal_V relative_V raw_uA corrected_uA blocks")
+        print("BASELINE_LIVE_RESIDUAL_COLUMNS", "pair channel terminal_V relative_V raw_uA reported_uA basis blocks")
         for index in range(_PAIRS):
             self.service()
             drain_uv, gate_uv = _target_uv(self.settings, index)
@@ -166,27 +168,41 @@ class LiveCheck:
                        (index + 1, _PAIRS, _RESIDUAL_BLOCKS))
             drain_duty = self.table.drive_duty("drain", model.volts_from_uv(drain_uv), self.settings)
             gate_duty = self.table.drive_duty("gate", model.volts_from_uv(gate_uv), self.settings)
-            for slot in range(6):
+            for slot in range(5):
                 self.sums[slot] = 0
             for block in range(_RESIDUAL_BLOCKS):
                 self._read_block(drain_duty, gate_duty)
                 for slot in range(4):
                     self.sums[slot] += self.codes[slot]
                 self.sums[4] += self.table.offset_nv(0, self.codes[0] * 1250)
-                self.sums[5] += self.table.offset_nv(1, self.codes[2] * 1250)
             for role in range(2):
                 resistance = model.DRAIN_SHUNT_OHM if role == 0 else model.GATE_SHUNT_OHM
                 bus_sum, shunt_sum = self.sums[role * 2], self.sums[role * 2 + 1]
-                terminal_v = (bus_sum * 1250 - shunt_sum * 2.5) / (_RESIDUAL_BLOCKS * 1000000)
+                # Average native codes before rounding physical units. Divide
+                # before multiplying to keep even 20-bit sums in small ints.
+                if role == 0:
+                    bus_uv = cb._round_scaled(bus_sum, 1250, _RESIDUAL_BLOCKS)
+                    shunt_nv = cb._round_scaled(shunt_sum, 2500, _RESIDUAL_BLOCKS)
+                else:
+                    bus_uv = cb._round_scaled(bus_sum, 3125, _RESIDUAL_BLOCKS * 16)
+                    shunt_nv = cb._round_scaled(shunt_sum, 625, _RESIDUAL_BLOCKS * 2)
+                terminal_v = bus_uv / 1000000 - shunt_nv / 1000000000
                 relative_v = terminal_v - model.volts_from_uv(self.settings["source_voltage_uv"])
-                raw_ua = shunt_sum * 2.5 / (_RESIDUAL_BLOCKS * resistance)
-                corrected_ua = (shunt_sum * 2500 - self.sums[4 + role]) / (
-                    _RESIDUAL_BLOCKS * 1000 * resistance)
-                self.maximum_residual_ua[role] = max(self.maximum_residual_ua[role], abs(corrected_ua))
+                raw_ua = shunt_nv / (1000 * resistance)
+                if role == 0:
+                    baseline_nv = cb._round_div(self.sums[4], _RESIDUAL_BLOCKS)
+                    reported_ua = (shunt_nv - baseline_nv) / (1000 * resistance)
+                    basis = "baseline_corrected"
+                else:
+                    # Keep this check identical to normal scans: no gate tare
+                    # lookup or subtraction, even when a gate table is saved.
+                    reported_ua, basis = raw_ua, "raw"
+                self.maximum_residual_ua[role] = max(self.maximum_residual_ua[role], abs(reported_ua))
                 print("BASELINE_LIVE_RESIDUAL", index, cb.ROLES[role], terminal_v,
-                      relative_v, raw_ua, corrected_ua, _RESIDUAL_BLOCKS)
+                      relative_v, raw_ua, reported_ua, basis, _RESIDUAL_BLOCKS)
             self.instrument.zero()
-        print("BASELINE_LIVE_RESIDUAL_MAX_UA", self.maximum_residual_ua[0], self.maximum_residual_ua[1])
+        print("BASELINE_LIVE_RESIDUAL_MAX_UA", "drain_corrected", self.maximum_residual_ua[0],
+              "gate_raw", self.maximum_residual_ua[1])
 
     def commit(self):
         self.service()  # Last opportunity for CANCEL before the atomic commit.

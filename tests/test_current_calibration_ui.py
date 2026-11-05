@@ -243,7 +243,7 @@ class CurrentCalibrationUITests(unittest.TestCase):
     def make_baseline(self):
         self.instrument.identity = {
             "drain": {"address": 0x44, "die": 0x2260},
-            "gate": {"address": 0x41, "die": 0x2260},
+            "gate": {"address": 0x40, "die": 0x2281},
         }
         baseline = Baseline()
         baseline.begin(self.app.settings, self.instrument.identity)
@@ -266,23 +266,24 @@ class CurrentCalibrationUITests(unittest.TestCase):
         self.cloud = self.app.cloud = CorrectionCloud(self.buffer)
         self.app.dirty = True
         self.tick()
-        self.assertIn("Currents: baseline corrected", self.display.labels)
+        self.assertIn("Id corrected | Ig raw", self.display.labels)
         self.tick("right")
         self.tick()
         self.assertEqual(self.cloud.correction["sha256"], baseline.sha256)
+        self.assertEqual(self.cloud.correction["applied_to"], "drain")
         self.assertEqual(self.cloud.correction, self.engine.current_correction(self.app.settings))
 
     def test_settings_or_sensor_identity_change_clearly_marks_raw(self):
         self.make_baseline()
         self.tick("left")
         self.action("advanced")
-        self.assertIn("Currents: baseline corrected", self.display.labels)
+        self.assertIn("Id corrected | Ig raw", self.display.labels)
         self.app.draft["ina_average_count"] = 256
         self.app.dirty = True
         self.tick()
         self.assertIn("RAW currents | Recalibration needed", self.display.labels)
         self.app.draft["ina_average_count"] = self.app.settings["ina_average_count"]
-        self.instrument.identity["gate"]["address"] = 0x40
+        self.instrument.identity["gate"]["address"] = 0x41
         self.app.dirty = True
         self.tick()
         self.assertIn("RAW currents | Recalibration needed", self.display.labels)

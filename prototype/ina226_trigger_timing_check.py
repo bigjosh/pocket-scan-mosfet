@@ -1,48 +1,58 @@
-"""Verify triggered INA226 averages with both PWM outputs held low."""
+"""Verify mixed INA226/INA228 averages with both PWM outputs held low."""
 import main
+import model
+from hardware import INA_CONFIG, INA228_ADC_CONFIG
 
 COUNTS = (1, 4, 16, 64, 128, 256, 512, 1024)
-ADDRESSES = (0x44, 0x41)
+ADDRESSES = (0x44, 0x40)
 
 
 def run():
     instrument = main.Instrument()
-    original = [instrument._read16(address, 0) for address in ADDRESSES]
+    original = [instrument._read16(0x44, 0), instrument._read16(0x40, 1)]
+    first, last = [0, 0, 0, 0], [0, 0, 0, 0]
     try:
         for index, count in enumerate(COUNTS):
-            config = 0x4123 | (index << 9)
-            payload = bytes((config >> 8, config & 255))
             started = main.time.ticks_us()
-            for address in ADDRESSES:
-                instrument._bus.writeto_mem(address, 0, payload)
-                assert instrument._read16(address, 0) == config
+            instrument.begin_measurement(count)
             ready = [None, None]
             polls = 0
-            while ready[0] is None or ready[1] is None:
-                for sensor, address in enumerate(ADDRESSES):
-                    if ready[sensor] is None and instrument._read16(address, 6) & 8:
+            while True:
+                complete = instrument.poll_measurement()
+                for sensor in range(2):
+                    if ready[sensor] is None and instrument._ready_mask & (1 << sensor):
                         ready[sensor] = main.time.ticks_diff(main.time.ticks_us(), started)
                 polls += 1
+                if complete:
+                    break
                 if main.time.ticks_diff(main.time.ticks_us(), started) > 4000000:
                     raise RuntimeError("Triggered conversion did not finish")
                 if ready[0] is None or ready[1] is None:
                     main.time.sleep_ms(2)
-            first = [(instrument._read16(address, 1), instrument._read16(address, 2))
-                     for address in ADDRESSES]
+            instrument.read_codes_into(first)
             main.time.sleep_ms(20)
-            last = [(instrument._read16(address, 1), instrument._read16(address, 2))
-                    for address in ADDRESSES]
+            instrument.read_codes_into(last)
             assert first == last
-            print("INA_TRIGGER_PASS", "averages", count, "config", config,
-                  "nominal_us", count * 2200, "ready_us", ready,
+            print("INA_TRIGGER_PASS", "averages", count,
+                  "nominal_us", [count * 2 * model.INA_CONVERSION_US,
+                                 count * 2 * model.INA228_CONVERSION_US], "ready_us", ready,
                   "polls", polls, "registers_stable", True, "codes", first)
     finally:
-        for sensor, address in enumerate(ADDRESSES):
-            config = original[sensor]
-            instrument._bus.writeto_mem(address, 0, bytes((config >> 8, config & 255)))
-        instrument.close()
-        main.Pin(21, main.Pin.OUT, value=0)
-        main.Pin(20, main.Pin.OUT, value=0)
+        errors = []
+        try:
+            for address, register, config in ((0x44, 0, INA_CONFIG), (0x40, 1, INA228_ADC_CONFIG)):
+                try:
+                    instrument._write16(address, register, config)
+                except Exception as error:
+                    errors.append(type(error).__name__)
+        finally:
+            try:
+                instrument.close()
+            finally:
+                main.Pin(21, main.Pin.OUT, value=0)
+                main.Pin(20, main.Pin.OUT, value=0)
+        if errors:
+            raise RuntimeError("Timing probe configuration restore failed")
     print("INA_TRIGGER_DONE", "restored_config", original, "outputs_low", True)
 
 

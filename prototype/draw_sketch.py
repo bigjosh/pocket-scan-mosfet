@@ -1,13 +1,15 @@
-"""Generate revision G: fitted 1k 5% drain filter and relay-switched 18 V rail.
+"""Generate revision H: INA226 drain, INA228 gate, and relay-switched 18 V rail.
 
 Reference data:
 https://www.ti.com/lit/ds/symlink/lm358.pdf (legacy LM358)
 https://www.ti.com/lit/ds/symlink/ina226.pdf
+https://www.ti.com/lit/ds/symlink/ina228.pdf
 https://datasheets.raspberrypi.com/picow/pico-2-w-datasheet.pdf
 
 Both channels use 100 kHz PWM and 68k/10k feedback. Drain R13 adds the
 3.3 V reference through 6.8k at IN1+; fitted drain filter R1 is 1k 5%.
 Gate remains ground referenced with its nominal 1k filter, not remeasured.
+INA228 gate shunt is fitted and measured at 98.8 ohm; nominal recommendation is 100 ohm 1%.
 Two 9 V batteries are series connected, negative at GND and positive through
 a normally open relay-module contact to U1 pin 8. Module VCC and ACTIVATE
 both use 3.3 V; its GND uses common ground. Internal suppression is unverified.
@@ -112,8 +114,8 @@ class Sheet:
 
 def overview():
     s = Sheet('prototype-overview', 1600, 1040,
-              'Pocket MOSFET scanner - prototype G',
-              '3.3 V source reference | relay-switched 2 x 9 V battery supply | one LM358P | two INA226 sensors')
+              'Pocket MOSFET scanner - prototype H',
+              '3.3 V source reference | relay-switched 2 x 9 V battery supply | LM358P | INA226 drain / INA228 gate')
     s.box(40,120,380,620,'Pico 2 W + Plus UI')
     s.lines(65,195,[
         'GP20 / pin 26: drain PWM',
@@ -136,12 +138,12 @@ def overview():
     s.box(490,360,610,150,'Drain drive + sense')
     s.lines(515,424,[
         'PWM + 3.3 V reference -> U1A -> nominal 1 ohm -> D',
-        'INA_D: 0x44; ideal VD = VS + 6.8 x PWMavg',
+        'INA226 D: 0x44; ideal VD = VS + 6.8 x PWMavg',
     ],19,gap=33)
     s.box(490,570,610,150,'Gate drive + sense')
     s.lines(515,634,[
-        'PWM filter -> U1B -> 680 ohm nominal -> G',
-        'INA_G: 0x41; ideal output = 7.8 x PWM average',
+        'PWM filter -> U1B -> 98.8 ohm measured shunt -> G',
+        'INA228 G: 0x40; ideal output = 7.8 x PWM average',
     ],19,gap=33)
     s.box(1250,340,305,430,'DUT fixture')
     s.text(1275,410,'VDS = VD - VS',20)
@@ -156,9 +158,9 @@ def overview():
     s.lines(65,880,[
         'R1 = 1k 5% fitted. Nominal VD = 3.3 + 22.44*duty; record actual measured voltage.',
         'Relay stays energized through soft reset. It switches the battery supply, not the DUT drain or gate connections.',
-        'INA shunt full-scale stop, both signs: 0x7fff / 0x8000 (~104 mA drain, ~128 uA gate).',
+        'ADC endpoint stops: drain +/-104 mA (INA226); gate +/-1.6583 mA (INA228, fitted 98.8 ohm).',
     ],19,gap=32)
-    s.finish('Revision G | Docs 2026-11-03 | C5 fitted; C6 unconfirmed | Direct drive / ADC stops: firmware/README.md')
+    s.finish('Revision H | Docs 2026-11-04 | INA228 gate / 98.8 ohm fitted | C5 fitted; C6 unconfirmed')
 
 
 def channel(s, offset, name, amp, gpio, pin_plus, pin_minus, pin_out, shunt, address):
@@ -185,7 +187,7 @@ def channel(s, offset, name, amp, gpio, pin_plus, pin_minus, pin_out, shunt, add
     s.terminal(1485,y(315))
     s.text(1430,y(287),f'DUT {name[0]}',20,weight='bold')
     s.text(865,y(347),f'{name[0]}_DRV')
-    s.box(1010,y(150),280,90,f'INA_{name[0]} - {address}',fill='#eaf4f3')
+    s.box(1010,y(150),280,90,f'{"INA226" if drain else "INA228"} {name[0]} - {address}',fill='#eaf4f3')
     s.text(1025,y(226),'VBUS',16)
     s.text(1105,y(226),'IN+',16)
     s.text(1230,y(226),'IN-',16)
@@ -207,16 +209,16 @@ def channel(s, offset, name, amp, gpio, pin_plus, pin_minus, pin_out, shunt, add
     s.lines(1010,y(392),[
         'VBUS and feedback are BEFORE the shunt.',
         'Kelvin-connect IN+ / IN- at the shunt.',
-        'Software current scale: 0.789 ohm.' if drain else 'Provisional software scale: 638 ohm.',
+        'Software current scale: 0.789 ohm.' if drain else '98.8 ohm measured; stock shunt replaced.',
     ],18,gap=28)
     s.text(60,y(608),f'{amp}: IN+ pin {pin_plus}; IN- pin {pin_minus}; OUT pin {pin_out}. Supply: pin 8 = switched battery +; pin 4 = GND.',18)
 
 
 def drivers():
-    s=Sheet('prototype-drivers',1600,1370,'Prototype G - two analog drive/sense channels',
-            'LM358P V+ = relay-switched nominal 18 V; V- = GND. INA226 logic and source reference use Pico 3.3 V.')
+    s=Sheet('prototype-drivers',1600,1370,'Prototype H - two analog drive/sense channels',
+            'LM358P V+ = relay-switched nominal 18 V; V- = GND. Sensor logic and source reference use Pico 3.3 V.')
     channel(s,0,'Drain','U1A',20,3,2,1,'R5 1 ohm','0x44')
-    channel(s,565,'Gate','U1B',21,5,6,7,'R10 680 ohm','0x41')
+    channel(s,565,'Gate','U1B',21,5,6,7,'R10 98.8 ohm','0x40')
     s.text(60,1247,'Pico 3V3(OUT) / physical pin 36',20,weight='bold')
     s.wire((60,1270),(710,1270));s.terminal(710,1270)
     s.text(735,1277,'DUT S / VS = nominal 3.3 V',23,weight='bold')
@@ -225,7 +227,7 @@ def drivers():
 
 
 def power_and_sensing():
-    s=Sheet('prototype-power-and-sensing',1600,1550,'Prototype G - battery supply, relay and 3.3 V reference',
+    s=Sheet('prototype-power-and-sensing',1600,1550,'Prototype H - battery supply, relay and 3.3 V reference',
             'All ground symbols join Pico GND / physical pin 38. Battery negative is at GND, not at the source reference.')
     s.box(30,110,750,625,'2 x 9 V battery stack and normally open contact')
     s.battery(125,245,'B2 9 V')
@@ -273,16 +275,16 @@ def power_and_sensing():
 
     s.box(30,765,1540,275,'Readback - optional current baseline and actual terminal voltages')
     for x,title,rows in [
-        (60,'INA_D - address 0x44',[
+        (60,'INA226 drain - address 0x44',[
             'VBUS = D_DRV; IN+ = D_DRV',
             'IN- = DUT D; shunt nominal 1 ohm',
             'Id = (VSH_D - baseline_D) / 0.789',
             'VD = VBUS_D - raw VSH_D',
         ]),
-        (570,'INA_G - address 0x41',[
+        (570,'INA228 gate - address 0x40',[
             'VBUS = G_DRV; IN+ = G_DRV',
-            'IN- = DUT G; shunt nominal 680 ohm',
-            'Ig = (VSH_G - baseline_G) / 638',
+            'IN- = DUT G; fitted 98.8 ohm shunt',
+            'Ig = (VSH_G - baseline_G) / 98.8',
             'VG = VBUS_G - raw VSH_G',
         ]),
         (1080,'Source-relative measurements',[
@@ -293,14 +295,14 @@ def power_and_sensing():
         ]),
     ]:
         s.text(x,833,title,21,weight='bold');s.lines(x,875,rows,18,gap=31)
-    s.text(60,1012,'VSH = IN+ - IN-. Current may subtract open-output baseline. Stops use raw shunt codes 0x7fff / 0x8000.',18,ACCENT)
+    s.text(60,1012,'Endpoint codes: drain 0x7fff / 0x8000; gate 0x7ffff / 0x80000 (20-bit). Calibration needs refreshing.',18,ACCENT)
 
     s.box(30,1070,750,360,'Logic / I2C / breakout wiring')
     s.lines(55,1135,[
         'INA VCC -> Pico 3V3; INA GND -> Pico GND.',
         'SDA -> GP18 / pin 24; SCL -> GP19 / pin 25.',
         'Breakout pull-ups already fitted; no external pull-ups.',
-        'A1/A0: drain = 3V3/GND; gate = GND/3V3.',
+        'A1/A0: drain = 3V3/GND; gate = GND/GND.',
         '100nF at each INA supply; ALE / ALERT unused.',
         'Each INA VBUS joins its IN+ (not Pico USB VBUS).',
         'VSYS / pin 39 and VBUS / pin 40 are not analog rails.',
@@ -320,11 +322,11 @@ def power_and_sensing():
         'Power sequencing / hardware compliance need verification.',
     ],18,gap=28)
     s.text(40,1475,'An unpowered LM358 may load a biased-source DUT through its body diode. Relay delay / rail collapse need separate verification.',18,ACCENT)
-    s.finish('Revision G | Docs 2026-11-03 | Source / module control wiring confirmed; relay internals and power transients unverified')
+    s.finish('Revision H | Docs 2026-11-04 | I2C identities verified; analog checks pending | Relay internals and power transients unverified')
 
 
 if __name__ == '__main__':
     overview()
     drivers()
     power_and_sensing()
-    print('Wrote 3 revision-G SVG sketches to',OUT)
+    print('Wrote 3 revision-H SVG sketches to',OUT)
