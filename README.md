@@ -6,14 +6,15 @@
 
 A pocket-sized MOSFET curve tracer using a sweeps drain voltage
 for each gate voltage, plots measured curves locally, and uploads each scan
-to a new Google Sheets tab.
+to a new Google Sheets tab, with plots...
+<img width="1066" height="1120" alt="image" src="https://github.com/user-attachments/assets/da5279d9-d765-468f-b696-48eac7ae8299" />
 
-Using 2x9V batteries it can cover drain and gate voltages -3V to +15V relative to source. 
+Uses a boost converter so it can cover drain and gate voltages -3V to +15V relative to source. 
 
 Logs both the commanded and actual measured voltages so small inacuracies in the voltage
 generation don't matter. 
 
-Critically it measures gate leakage down to sub 1 microamp because if your gate is leaking then 
+Critically, it measures gate leakage down to tens of nanoamps because if your gate is leaking then 
 nothing else really counts.
 
 Every part used was available on Amazon next day and you can build it with no soldering if you want. 
